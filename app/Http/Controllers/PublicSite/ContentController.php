@@ -37,7 +37,7 @@ final class ContentController extends Controller
 
     public function help(): Response
     {
-        return $this->page('Help', 'Create an organization, add a venue and an event, then add a free ticket type and publish. Buyers register on your organization address and receive a PDF and QR code by email. The QR payload is a random token. WorxEvents stores only a hash of that token. Draft events stay off the public site and out of the sitemap. Paid checkout is not available until a card processor is connected.');
+        return $this->page('Help', 'Create an organization, add a venue and an event, then add a ticket type and publish. Buyers register on your organization address and receive a PDF and QR code by email. The QR payload is a random token. WorxEvents stores only a hash of that token. Draft events stay off the public site and out of the sitemap. Paid checkout uses Authorize.net Accept.js after the organizer validates sandbox credentials. Card numbers are not posted to this site. Stripe is not connected.');
     }
 
     public function contact(): Response

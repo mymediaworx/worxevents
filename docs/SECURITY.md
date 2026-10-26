@@ -16,7 +16,7 @@ Phase 1 controls that are in the code:
 - [x] `.gitignore` ignores `.env` and `.env.*` except `.env.example`. The example file has empty secret fields.
 - [x] Audit logs redact property keys matching password, secret, token, card, cvc, cvv, or authorization.
 - [x] Fee snapshots and ledger rows throw if updated. Refund completion requires a matching provider reference.
-- [x] Stripe is not called. Authorize.net accepts no card data. The fake gateway is refused outside tests.
+- [x] Stripe is not called. Authorize.net accepts an Accept.js nonce, rejects posted card fields, encrypts the transaction key and signature key, and verifies webhook HMAC-SHA512. Live mode is off by default. The fake processor is refused outside tests.
 - [x] `worxevents:hosting-check` and `worxevents:platform-admin` do not print passwords.
 - [x] Pagination cannot request more than 100 rows.
 

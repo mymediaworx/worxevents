@@ -1,12 +1,12 @@
 # Payments
 
-Phase 1 does not charge a card and does not install `stripe/stripe-php`. `PaymentGateway` exposes `name()`, `isReady()`, and `refund()`. Checkout is not on the interface, so this phase cannot pretend to take payment.
+`PaymentGateway` exposes `name()`, `isReady()`, and `refund()`. Charge, lookup, and connection checks live on `AuthorizeNetGateway`, not on the shared interface, so the Stripe adapter does not grow a charge method. `stripe/stripe-php` is not installed.
 
 `PAYMENTS_GATEWAY=fake` exists for tests. `PaymentGatewayManager` throws if `fake` is used outside the testing environment.
 
 ## Recommendation
 
-Ship Stripe first. Add Authorize.net later behind the same interface. That split is [decision D16](DECISIONS.md) and still needs Michael's approval. The adapters match the recommendation so the boundary is real: Stripe is the default name, and Authorize.net `isReady()` is always false.
+Paid checkout uses Authorize.net now. Stripe stays the disabled stub. [Decision D16](DECISIONS.md) still says Stripe first and is open; the build order follows the later instruction to ship Authorize.net and leave Stripe for later. `PAYMENTS_GATEWAY` still defaults to `stripe` for the refund provider name. Organizers who validate Authorize.net credentials charge through that adapter regardless of the default.
 
 ## Stripe Connect
 
@@ -26,14 +26,23 @@ Recommended shape, not yet called:
 
 ## Authorize.net
 
-Researched from Authorize.net Accept.js documentation on 2026-10-26.
+Researched from Authorize.net Accept.js documentation on 2026-10-26. Implemented as sandbox-only paid checkout.
 
-- The organizer uses their own merchant account. This platform does not assume split payments or an application fee.
-- Accept.js posts card data from the browser to Authorize.net and returns a one-time nonce. The server would send that nonce in `createTransactionRequest`. The public client key can be in a page. The API login id and transaction key cannot.
-- Accept.js has two integration styles: a form the application hosts (SAQ A-EP) or a hosted payment form (SAQ A). The hosted form is the smaller PCI surface when this phase is built.
-- The booking fee is a receivable. The ledger posts `owed` when the order is assessed for an Authorize.net organizer, and `remitted` when an invoice payment is recorded. Cadence is [decision D11](DECISIONS.md).
-- `AuthorizeNetGateway` accepts no card data, `isReady()` is false, and `refund()` throws `GatewayDisabled`.
+- The organizer uses their own merchant account. There is no split and no application fee.
+- Accept.js posts card data from the browser to Authorize.net and returns a one-time nonce (`dataDescriptor` + `dataValue`). The server sends that nonce in `createTransactionRequest`. A posted card number, CVV, or expiry is rejected. The public client key and API login ID are on the event page because Accept.js requires them. The transaction key and signature key are not.
+- Credentials are encrypted at rest on `payment_settings`. Save runs `authenticateTestRequest` first. A failed check stores nothing. The settings screen does not print the keys back.
+- Sandbox calls `https://apitest.authorize.net`. Live mode throws `GatewayDisabled` unless `AUTHORIZE_NET_LIVE` is true. The event page loads `https://jstest.authorize.net/v1/Accept.js` only for a validated sandbox account.
+- The server prices the order. A $50 ticket is a $1.50 booking fee and a $51.50 charge. The browser total is not trusted.
+- Tickets are issued only when the processor result is accepted, `status` is `approved`, and a transaction id is present. `ProviderResult.completed` stays false. A decline cancels the order and releases the hold. A lost response leaves the order pending; a signed webhook or a later lookup can settle it once.
+- Webhooks are `POST /webhooks/authorize-net/{organization}` and are excluded from CSRF. The `X-ANET-Signature` header is HMAC-SHA512 of the raw body using the organizer's signature key. The notification id is stored once. A repeat does not issue a second ticket.
+- Tests bind `FakeAuthorizeNetClient`. The HTTP client is covered with `Http::fake` and does not call Authorize.net.
+
+The booking fee is a receivable. A paid order posts `assessed` and `owed`. `collected` stays empty because there is no split. Finance opens an invoice for the outstanding balance and marks it paid with a payment reference. That posts one `remitted` row per order (`{organization}:{order}:remitted`). Doing it again with the same reference is a no-op. A different reference is refused. Automatic weekly or monthly cadence is still not built ([decision D11](DECISIONS.md)).
 
 ## Refunds
 
-The organizer decides. The provider confirms. `OrganizerRefundWorkflow::request` stores status `requested`. `submit` may move it to `submitted` or `failed` and always leaves `completed_at` null. `confirm` is the only writer of `completed`, and only when the stored provider reference matches. No route calls `confirm`. A mismatched reference leaves the row `submitted`.
+The organizer decides. The provider confirms. `OrganizerRefundWorkflow::request` stores status `requested`. `submit` may move it to `submitted` or `failed` and always leaves `completed_at` null. `confirm` is the only writer of `completed`, and only when the stored provider reference matches.
+
+`POST /finance/refunds/{refund}/confirm` is that confirmation for Authorize.net. It looks up the refund transaction and calls `confirm` only when the lookup is approved. It does not mark a refund complete from the organizer's decision. Stripe and the unconfigured gateway still return HTTP 409 and leave the row `requested`. There is no route that completes a Stripe refund.
+
+A partial refund leaves the tickets issued. Once completed refunds cover the ticket subtotal, tickets are voided. The booking fee stays `owed` ([decision D2](DECISIONS.md)). The refund amount cannot exceed the remaining charge. The fake gateway used by the Phase 1 test still cannot be confirmed from this route.

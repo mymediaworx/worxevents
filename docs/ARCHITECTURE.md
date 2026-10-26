@@ -109,25 +109,23 @@ The pure service is `BookingFeeCalculator`. The formula, rounding, and required 
 
 `BookingFeeRecorder` writes one immutable snapshot per order and one `assessed` ledger row. The same order and the same basis return the original snapshot. A different basis throws. A later fee rule does not rewrite old snapshots.
 
-Ledger kinds are `assessed`, `collected`, `owed`, and `remitted`. Balances sum each kind on its own. Phase 1 posts `assessed` only.
+Ledger kinds are `assessed`, `collected`, `owed`, and `remitted`. Balances sum each kind on its own. Free orders post `assessed` at $0. Paid Authorize.net orders post `assessed` and `owed` after approval, and `remitted` when an invoice is marked paid. `collected` waits for a future Stripe split.
 
 ## Payments and refunds
 
-Both providers sit behind `PaymentGateway`. The interface has `name`, `isReady`, and `refund`. Checkout is absent on purpose.
-
-Ship Stripe first. Authorize.net comes later behind the same interface. The recommendation and the rejected alternatives are in [PAYMENTS.md](PAYMENTS.md).
+Both providers sit behind `PaymentGateway` (`name`, `isReady`, `refund`). Authorize.net charge, lookup, and credential checks are on `AuthorizeNetGateway` so the Stripe class stays a stub. Details are in [PAYMENTS.md](PAYMENTS.md).
 
 `OrganizerRefundWorkflow` has three steps:
 
 1. `request` records the organizer's decision. Status `requested`. Nothing is sent.
 2. `submit` calls the gateway. An accepted result becomes `submitted` and stores a provider reference. `completed_at` stays null. An unconfigured or disabled gateway becomes HTTP 409 and the row stays `requested`.
-3. `confirm` is the only path to `completed`. The refund must already be `submitted`, and the provider reference must match with `hash_equals`. There is no HTTP route that confirms a refund.
+3. `confirm` is the only path to `completed`. The refund must already be `submitted`, and the provider reference must match with `hash_equals`. For Authorize.net, `POST /finance/refunds/{refund}/confirm` runs that step only after a transaction lookup. Stripe has no confirm route.
 
 `ProviderResult` throws if a gateway tries to set `completed` to true.
 
 ## Pages and design
 
-The page list and tokens are in [PAGES.md](PAGES.md). Free registration checks out on the organization host. Paid checkout is not wired. Box office and check-in remain permission-gated shells.
+The page list and tokens are in [PAGES.md](PAGES.md). Free registration and Authorize.net checkout run on the organization host. Stripe does not charge. Box office and check-in remain permission-gated shells.
 
 ## Deployment
 
@@ -146,6 +144,6 @@ CI is `.github/workflows/ci.yml`: Pint, PHPStan level 5, `composer audit`, the r
 - A hostname typo in `config/organizations.php` marks that host verified. Review the file before syncing.
 - The user table is global. Isolation depends on membership checks and scopes, which the tests cover, not on separate databases.
 - Fee and refund policy in [DECISIONS.md](DECISIONS.md) was approved by Michael on 2026-10-26. Tax treatment, buyer-facing wording, and merchant of record remain external reviews.
-- Stripe and Authorize.net adapters cannot charge. Turning them on without webhook confirmation would mark money that did not move.
+- Stripe cannot charge. Authorize.net live mode is off until `AUTHORIZE_NET_LIVE` is set. Sandbox checkout issues tickets only after an approved processor result.
 - SiteGround limits for this domain are unverified. A cron that never runs leaves queued work sitting in `background_jobs`.
 - Inode pressure returns if a deploy copies `node_modules` or keeps more than two release trees. The script removes `node_modules` from a release and deletes older trees.

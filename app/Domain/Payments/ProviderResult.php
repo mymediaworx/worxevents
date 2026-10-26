@@ -18,6 +18,9 @@ final class ProviderResult
         public readonly bool $completed,
         public readonly ?string $reference,
         public readonly string $detail,
+        public readonly string $status = '',
+        public readonly ?string $accountLastFour = null,
+        public readonly ?string $invoiceNumber = null,
     ) {
         if ($this->completed) {
             throw new LogicException('Gateway results stay incomplete until a separate confirmation.');

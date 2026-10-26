@@ -21,6 +21,7 @@ final class Navigation
         return [
             ['label' => 'Dashboard', 'route' => 'dashboard', 'permission' => null],
             ['label' => 'Setup', 'route' => 'setup', 'permission' => 'organization.settings.update'],
+            ['label' => 'Payments', 'route' => 'payments', 'permission' => 'organization.settings.update'],
             ['label' => 'Events', 'route' => 'events', 'permission' => 'events.view'],
             ['label' => 'Venues', 'route' => 'venues', 'permission' => 'events.view'],
             ['label' => 'Reports', 'route' => 'reports', 'permission' => 'finance.view'],

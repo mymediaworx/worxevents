@@ -19,14 +19,20 @@ Routes are server-rendered. A shell page still checks the permission. Livewire i
 | `GET /team`, `POST /team/invitations` | View, then manage | Roster and invitations |
 | `GET /finance` | `finance.view` | Refund list |
 | `POST /finance/refunds` | `finance.refunds.decide` | Request a refund |
-| `POST /finance/refunds/{refund}/submit` | `finance.refunds.decide` | Submit to the gateway, which is disabled |
+| `POST /finance/refunds/{refund}/submit` | `finance.refunds.decide` | Submit to the provider. Stripe stays unconfigured and returns 409 |
+| `POST /finance/refunds/{refund}/confirm` | `finance.refunds.decide` | Authorize.net lookup, then confirm. Does not complete a Stripe refund |
+| `GET /payments`, `POST /payments` | `organization.settings.update` | Authorize.net sandbox credentials. Write-only secrets |
 | `GET /platform` | Platform member | Organization list shell |
 | `GET/POST /platform/fees` | View, then manage | Immutable platform fee rules |
 | `GET /setup` | `organization.settings.update` | Organization details, logo, currency, and time zone |
 | `GET /venues` | `events.view` | Venues. Writing requires `events.manage` |
-| `GET /reports` | `finance.view` | Counts of published events, registrations, tickets, and fees |
+| `GET /reports` | `finance.view` | Counts, fee ledger, and remittance invoices |
+| `GET /reports/finance.csv` | `finance.view` | Financial CSV |
+| `POST /reports/remittance` | `finance.refunds.decide` | Invoice outstanding booking fees |
+| `POST /reports/remittance/{invoice}/paid` | `finance.refunds.decide` | Mark an invoice paid and post `remitted` |
 | `GET /browse`, `/categories/{slug}` | Public | Search and filter published events. Drafts are omitted |
-| `GET /e/{slug}` | Public | Event page, free registration, and a short inventory hold. Drafts are 404 |
+| `GET /e/{slug}` | Public | Event page, free registration or Accept.js checkout, and a short inventory hold. Drafts are 404 |
+| `POST /webhooks/authorize-net/{organization}` | Public, signed | Authorize.net notification. No CSRF. No card data |
 | `GET /o/{organization}` | Public | Organizer page |
 | `GET /v/{venue}`, `/o/{organization}/v/{venue}` | Public | Venue page |
 | `GET /about`, `/pricing`, `/help`, `/contact` | Public | Marketing and contact |

@@ -61,11 +61,11 @@ Also locked: two $25 tickets are one $1.50 fee, not two $1.00 fees. A $100 ticke
 
 Ledger kinds, summed separately:
 
-| Kind | Meaning | Phase 1 |
+| Kind | Meaning | When it is posted |
 |---|---|---|
-| `assessed` | Fee priced for the order | Written with the snapshot. Idempotency key `{organization}:{order}:assessed`. |
-| `collected` | Platform actually received the fee | Not posted. Reserved for a Stripe `application_fee` webhook. |
-| `owed` | Organizer still owes the fee | Not posted. Reserved for Authorize.net receivables. |
-| `remitted` | Organizer paid an invoice for `owed` | Not posted. |
+| `assessed` | Fee priced for the order | With the snapshot. Idempotency key `{organization}:{order}:assessed`. |
+| `collected` | Platform actually received the fee | Not posted. Reserved for a future Stripe `application_fee`. Authorize.net has no split. |
+| `owed` | Organizer owes the fee | After an approved Authorize.net charge. Key `{organization}:{order}:owed`. |
+| `remitted` | Organizer paid an invoice for `owed` | When that invoice is marked paid. Key `{organization}:{order}:remitted`. |
 
 `postLedger` is idempotent on `idempotency_key`. A reused key with a different organization, order, kind, or amount is refused.

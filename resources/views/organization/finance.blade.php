@@ -36,6 +36,12 @@
                         <button type="submit">Submit to provider</button>
                     </form>
                 @endif
+                @if ($refund->status->value === 'submitted' && auth()->user()->can('finance.refunds.decide'))
+                    <form method="post" action="{{ route('refunds.confirm', $refund) }}">
+                        @csrf
+                        <button type="submit">Check provider confirmation</button>
+                    </form>
+                @endif
             </li>
         @empty
             <li>No refund requests.</li>

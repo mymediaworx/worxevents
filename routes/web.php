@@ -10,6 +10,7 @@ use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\EventController;
 use App\Http\Controllers\Organization\InvitationController;
+use App\Http\Controllers\Organization\PaymentSettingsController;
 use App\Http\Controllers\Organization\PublicHomeController;
 use App\Http\Controllers\Organization\RefundController;
 use App\Http\Controllers\Organization\ReportController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Organization\TeamController;
 use App\Http\Controllers\Organization\VenueController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\FeeRuleController;
+use App\Http\Controllers\PublicSite\AuthorizeNetWebhookController;
 use App\Http\Controllers\PublicSite\BrowseController;
 use App\Http\Controllers\PublicSite\CheckoutController;
 use App\Http\Controllers\PublicSite\ContentController;
@@ -57,7 +59,11 @@ Route::get('/o/{organization}/v/{venue}', [BrowseController::class, 'platformVen
 Route::get('/v/{venue}', [BrowseController::class, 'venue'])->name('public.venue');
 Route::get('/e/{slug}', [EventPageController::class, 'organization'])->name('public.event');
 Route::post('/e/{slug}/hold', [CheckoutController::class, 'hold'])->middleware('throttle:checkout')->name('checkout.hold');
+Route::post('/e/{slug}/quote', [CheckoutController::class, 'quote'])->middleware('throttle:checkout')->name('checkout.quote');
 Route::post('/e/{slug}/checkout', [CheckoutController::class, 'store'])->middleware('throttle:checkout')->name('checkout.store');
+Route::post('/webhooks/authorize-net/{organizationId}', [AuthorizeNetWebhookController::class, 'store'])
+    ->middleware('throttle:webhooks')
+    ->name('webhooks.authorize-net');
 Route::get('/registration/{reference}', [RegistrationController::class, 'show'])->name('registration.show');
 Route::post('/registration/{reference}', [RegistrationController::class, 'confirm'])->middleware('throttle:checkout')->name('registration.confirm');
 Route::get('/media/logo', [MediaController::class, 'logo'])->name('media.logo');
@@ -110,7 +116,12 @@ Route::middleware(['auth', 'organization.member', 'verified'])->group(function (
     Route::post('/venues', [VenueController::class, 'store'])->middleware('permission:events.manage')->name('venues.store');
     Route::get('/venues/{venue}/edit', [VenueController::class, 'edit'])->middleware('permission:events.manage')->name('venues.edit');
     Route::post('/venues/{venue}', [VenueController::class, 'update'])->middleware('permission:events.manage')->name('venues.update');
-    Route::get('/reports', ReportController::class)->middleware('permission:finance.view')->name('reports');
+    Route::get('/reports', [ReportController::class, 'index'])->middleware('permission:finance.view')->name('reports');
+    Route::get('/reports/finance.csv', [ReportController::class, 'csv'])->middleware('permission:finance.view')->name('reports.csv');
+    Route::post('/reports/remittance', [ReportController::class, 'openInvoice'])->middleware('permission:finance.refunds.decide')->name('reports.remittance');
+    Route::post('/reports/remittance/{invoice}/paid', [ReportController::class, 'markPaid'])->middleware('permission:finance.refunds.decide')->name('reports.remittance.paid');
+    Route::get('/payments', [PaymentSettingsController::class, 'show'])->middleware('permission:organization.settings.update')->name('payments');
+    Route::post('/payments', [PaymentSettingsController::class, 'store'])->middleware('permission:organization.settings.update')->name('payments.store');
     Route::get('/setup', [SetupController::class, 'show'])->middleware('permission:organization.settings.update')->name('setup');
     Route::post('/setup/details', [SetupController::class, 'details'])->middleware('permission:organization.settings.update')->name('setup.details');
     Route::post('/setup/branding', [SetupController::class, 'branding'])->middleware('permission:organization.settings.update')->name('setup.branding');
@@ -124,6 +135,7 @@ Route::middleware(['auth', 'organization.member', 'verified'])->group(function (
     Route::get('/finance', [RefundController::class, 'index'])->middleware('permission:finance.view')->name('finance');
     Route::post('/finance/refunds', [RefundController::class, 'store'])->middleware('permission:finance.refunds.decide')->name('refunds.store');
     Route::post('/finance/refunds/{refund}/submit', [RefundController::class, 'submit'])->middleware('permission:finance.refunds.decide')->name('refunds.submit');
+    Route::post('/finance/refunds/{refund}/confirm', [RefundController::class, 'confirm'])->middleware('permission:finance.refunds.decide')->name('refunds.confirm');
 });
 
 Route::middleware(['auth', 'platform.member', 'verified'])->prefix('platform')->group(function (): void {

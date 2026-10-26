@@ -73,7 +73,7 @@
     </ul>
     @if ($canRegister)
         <h2>Register</h2>
-        <form method="post" action="{{ route('checkout.store', $event->slug) }}" class="stack">
+        <form method="post" action="{{ route('checkout.store', $event->slug) }}" class="stack" @if (!empty($acceptScript)) data-accept-form data-api-login="{{ $acceptApiLogin }}" data-client-key="{{ $acceptClientKey }}" @endif>
             @csrf
             <label>Your name
                 <input name="guest_name" required autocomplete="name" value="{{ old('guest_name') }}">
@@ -86,7 +86,7 @@
             </label>
             @foreach ($registerable as $type)
                 <fieldset>
-                    <legend>{{ $type->name }} · Free · up to {{ $type->max_per_order }}</legend>
+                    <legend>{{ $type->name }} · {{ $type->price_cents === 0 ? 'Free' : '$'.\App\Domain\Fees\MoneyFormat::centsToDollars($type->price_cents) }} · up to {{ $type->max_per_order }}</legend>
                     <label>Quantity
                         <input type="number" name="lines[{{ $type->id }}][quantity]" min="0" max="{{ $type->max_per_order }}" value="0">
                     </label>
@@ -118,8 +118,47 @@
                     @endif
                 </label>
             @endforeach
-            <button class="button" type="submit">Complete free registration</button>
+            @if (!empty($quote))
+                <h2>Order total</h2>
+                <ul>
+                    <li>Tickets ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['ticket_subtotal_cents']) }}</li>
+                    <li>{{ config('payments.fee_label') }} ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['fee_cents']) }}</li>
+                    <li>Total ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['total_cents']) }}</li>
+                </ul>
+            @elseif (!empty($hasPaidTickets))
+                <p>{{ config('payments.fee_label') }} is calculated on the server at checkout. It is not taken from the browser.</p>
+            @endif
+            @if (!empty($hasPaidTickets))
+                <input type="hidden" name="data_descriptor" value="{{ old('data_descriptor') }}">
+                <input type="hidden" name="data_value" value="">
+                @if (!empty($acceptScript))
+                    <p>Card numbers are entered for Authorize.net and are not submitted to this site.</p>
+                    <label>Card number
+                        <input id="accept-card-number" type="text" inputmode="numeric" autocomplete="cc-number">
+                    </label>
+                    <label>Month
+                        <input id="accept-month" type="text" inputmode="numeric" autocomplete="cc-exp-month">
+                    </label>
+                    <label>Year
+                        <input id="accept-year" type="text" inputmode="numeric" autocomplete="cc-exp-year">
+                    </label>
+                    <label>Security code
+                        <input id="accept-code" type="text" inputmode="numeric" autocomplete="cc-csc">
+                    </label>
+                    <p id="accept-error" class="alert" role="alert"></p>
+                @endif
+            @endif
+            <button class="button" type="submit">{{ !empty($hasPaidTickets) ? 'Pay now' : 'Complete free registration' }}</button>
         </form>
+        @if (!empty($hasPaidTickets))
+            <form method="post" action="{{ route('checkout.quote', $event->slug) }}" class="stack">
+                @csrf
+                @foreach ($registerable as $type)
+                    <input type="hidden" name="lines[{{ $type->id }}][quantity]" value="1">
+                @endforeach
+                <button class="button button-quiet" type="submit">Review server total</button>
+            </form>
+        @endif
         <form method="post" action="{{ route('checkout.hold', $event->slug) }}" class="stack">
             @csrf
             <p>Hold tickets for {{ (int) config('worxevents.reservation_minutes', 15) }} minutes before registering.</p>
@@ -135,5 +174,9 @@
             </label>
             <button class="button button-quiet" type="submit">Reserve</button>
         </form>
+        @if (!empty($acceptScript))
+            <script src="{{ $acceptScript }}"></script>
+            <script src="{{ asset('js/accept-checkout.js') }}"></script>
+        @endif
     @endif
 @endsection

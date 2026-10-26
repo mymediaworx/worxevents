@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Authorization\RoleCatalog;
+use App\Domain\Payments\AuthorizeNetClient;
+use App\Domain\Payments\FakeAuthorizeNetClient;
+use App\Domain\Payments\HttpAuthorizeNetClient;
 use App\Models\FeeSnapshot;
 use App\Models\RefundRequest;
 use App\Models\User;
@@ -15,6 +18,7 @@ use App\Support\Navigation;
 use App\Tenancy\Access;
 use App\Tenancy\OrganizationManager;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -27,6 +31,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(OrganizationManager::class);
+        $this->app->singleton(AuthorizeNetClient::class, function (Application $app): AuthorizeNetClient {
+            if ($app->environment('testing')) {
+                return new FakeAuthorizeNetClient;
+            }
+
+            return new HttpAuthorizeNetClient;
+        });
     }
 
     public function boot(): void
@@ -59,6 +70,10 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('contact', function (Request $request): Limit {
             return Limit::perMinute(5)->by((string) $request->ip());
+        });
+
+        RateLimiter::for('webhooks', function (Request $request): Limit {
+            return Limit::perMinute(60)->by((string) $request->ip());
         });
 
         Gate::before(function (User $user, string $ability): ?bool {
