@@ -78,6 +78,7 @@
                 </form>
             @endif
         @endforeach
+        <p><a href="{{ route('events.extras', $event) }}">Series, discounts, seats, and waitlist</a></p>
         <h2>Sessions</h2>
         <ul>
             @foreach ($event->sessions as $session)

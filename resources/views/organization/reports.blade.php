@@ -9,6 +9,15 @@
         <li>Ticket subtotal: ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($summary['ticket_subtotal_cents']) }}</li>
         <li>Booking fees: ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($summary['fee_cents']) }}</li>
     </ul>
+    <h2>Advanced</h2>
+    <ul>
+        <li>Discounts: ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($advanced['discount_cents']) }}</li>
+        <li>Add-ons: ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($advanced['add_on_cents']) }}</li>
+        <li>Waitlist waiting: {{ $advanced['waitlist_waiting'] }}</li>
+        <li>Seats sold: {{ $advanced['seats_sold'] }}</li>
+        <li>Seats open: {{ $advanced['seats_open'] }}</li>
+        <li>Checked in: {{ $advanced['checked_in'] }}</li>
+    </ul>
     <h2>Booking fee ledger</h2>
     <ul>
         <li>Assessed: ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($ledger['assessed']) }}</li>

@@ -125,7 +125,7 @@ Both providers sit behind `PaymentGateway` (`name`, `isReady`, `refund`). Author
 
 ## Pages and design
 
-The page list and tokens are in [PAGES.md](PAGES.md). Free registration and Authorize.net checkout run on the organization host. Stripe does not charge. Check-in and box office share ticket inventory with online sales. Door card payments are recorded, not charged through Authorize.net.
+The page list and tokens are in [PAGES.md](PAGES.md). Free registration and Authorize.net checkout run on the organization host. Stripe does not charge. Check-in and box office share ticket inventory with online sales. Door card payments are recorded, not charged through Authorize.net. Discounts reduce the ticket subtotal before the booking fee. Add-ons are charged and excluded from that fee. Reserved seats are sections, rows, and seats with an accessible list picker. A visual seat designer is not included.
 
 ## Deployment
 
