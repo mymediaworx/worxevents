@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Pint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: vendor/bin/pint --test
+
+  static-analysis:
+    name: PHPStan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: vendor/bin/phpstan analyse --no-progress
+
+  audit:
+    name: Composer audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: composer audit
+
+  release-script:
+    name: Release script
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: bash tests/scripts/release_test.sh
+
+  tests:
+    name: Tests (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: MySQL 8.4
+            image: mysql:8.4
+            health: mysqladmin ping -h 127.0.0.1 -uworxevents -pworxevents
+          - name: MariaDB 11.8
+            image: mariadb:11.8
+            health: healthcheck.sh --connect --innodb_initialized
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_DATABASE: worxevents_test
+          MYSQL_USER: worxevents
+          MYSQL_PASSWORD: worxevents
+          MYSQL_ROOT_PASSWORD: worxevents
+          MARIADB_DATABASE: worxevents_test
+          MARIADB_USER: worxevents
+          MARIADB_PASSWORD: worxevents
+          MARIADB_ROOT_PASSWORD: worxevents
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="${{ matrix.health }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, xml, curl, zip, bcmath, intl, pdo_mysql
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHPUnit
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: worxevents_test
+          DB_USERNAME: worxevents
+          DB_PASSWORD: worxevents
+        run: php artisan test
