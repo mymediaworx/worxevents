@@ -39,6 +39,7 @@
         @endif
         @yield('content')
     </main>
+    @include('partials.analytics')
     <script src="{{ asset('js/worxevents.js') }}" defer></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ Shipped on this branch: daily and weekly timed-entry sessions, reserved seats (p
 
 ## Phase 6 — Growth and platform admin
 
-Platform admin for organizations, users, roles, suspension, fees, plans, payment oversight, disputes, audit logs, jobs, security events, and health. Support cases, referral and UTM tracking, promo QR codes, consented announcements, and analytics hooks behind consent.
+Shipped on this branch: platform screens for users and roles, suspend and reinstate, plans, payment oversight without secrets, disputes, audit logs, queued and failed jobs, security events, and a database health check. Support cases, referral and UTM values on the order, a promo QR for an event link, announcements only to consented addresses with an unsubscribe link, and an analytics script that loads only after consent and only when an https hook is configured.
 
 ## Phase 7 — Readiness
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Tenancy\Access;
@@ -45,6 +46,7 @@ final class LoginController extends Controller
             $this->audit->write('auth.login_failed', $this->organizations->id(), null, [
                 'email' => $email,
             ]);
+            $this->security('login_failed');
 
             return $this->invalid('Those credentials do not match our records.');
         }
@@ -52,6 +54,7 @@ final class LoginController extends Controller
         if ($request->attributes->get('host_kind') === 'platform') {
             if ($this->access->platformMembership($user) === null) {
                 $this->audit->write('auth.login_denied', null, $user, ['reason' => 'platform']);
+                $this->security('login_denied');
                 abort(403);
             }
         } else {
@@ -59,6 +62,7 @@ final class LoginController extends Controller
 
             if ($organizationId === null || $this->access->membership($user, $organizationId) === null) {
                 $this->audit->write('auth.login_denied', $organizationId, $user, ['reason' => 'organization']);
+                $this->security('login_denied');
                 abort(403);
             }
         }
@@ -74,6 +78,17 @@ final class LoginController extends Controller
             : route('dashboard');
 
         return redirect()->intended($home);
+    }
+
+    private function security(string $kind): void
+    {
+        SecurityEvent::query()->create([
+            'organization_id' => $this->organizations->id(),
+            'kind' => $kind,
+            'message' => 'Sign-in was rejected.',
+            'ip_hash' => hash('sha256', (string) request()->ip()),
+            'created_at' => now(),
+        ]);
     }
 
     private function invalid(string $message): Response

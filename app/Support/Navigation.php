@@ -30,6 +30,8 @@ final class Navigation
             ['label' => 'Finance', 'route' => 'finance', 'permission' => 'finance.view'],
             ['label' => 'Tickets', 'route' => 'tickets', 'permission' => 'orders.view_own'],
             ['label' => 'Team', 'route' => 'team', 'permission' => 'organization.members.view'],
+            ['label' => 'Support', 'route' => 'support', 'permission' => 'organization.view'],
+            ['label' => 'Announcements', 'route' => 'announcements', 'permission' => 'organization.settings.update'],
         ];
     }
 

@@ -62,6 +62,7 @@
         <a href="{{ route('sitemap') }}">Sitemap</a>
         <a href="{{ route('design') }}">Design</a>
     </footer>
+    @include('partials.analytics')
     <script src="{{ asset('js/worxevents.js') }}" defer></script>
 </body>
 </html>

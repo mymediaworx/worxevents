@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureOrganizationMember;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsurePlatformMember;
+use App\Http\Middleware\RememberCampaign;
 use App\Http\Middleware\ResolveHost;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // scopes hide the bound model and the request 404s.
         $middleware->web(prepend: [
             ResolveHost::class,
+        ]);
+        $middleware->web(append: [
+            RememberCampaign::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'webhooks/authorize-net/*',

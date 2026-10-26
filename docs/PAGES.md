@@ -24,7 +24,19 @@ Routes are server-rendered. A shell page still checks the permission. Livewire i
 | `POST /finance/refunds/{refund}/submit` | `finance.refunds.decide` | Submit to the provider. Stripe stays unconfigured and returns 409 |
 | `POST /finance/refunds/{refund}/confirm` | `finance.refunds.decide` | Authorize.net lookup, then confirm. Does not complete a Stripe refund |
 | `GET /payments`, `POST /payments` | `organization.settings.update` | Authorize.net sandbox credentials. Write-only secrets |
-| `GET /platform` | Platform member | Organization list shell |
+| `GET /platform` | Platform member | Organizations, with suspend and reinstate for `platform.organizations.manage` |
+| `GET /platform/users` | `platform.organizations.view` | Users, organization roles, and platform roles |
+| `GET /platform/plans` | `platform.organizations.view` | Plans. Writing requires `platform.settings.manage` and does not charge a card |
+| `GET /platform/payments` | `platform.fees.view` | Processor environment and validation. Secrets are not shown |
+| `GET /platform/disputes` | `platform.organizations.view` | Disputes. Opening and updating require `platform.organizations.manage` |
+| `GET /platform/audit` | `platform.audit.view` | Audit log |
+| `GET /platform/jobs` | `platform.audit.view` | Queue depth and failed job ids. Payloads and exceptions are not shown |
+| `GET /platform/security` | `platform.audit.view` | Sign-in failures, without the password |
+| `GET /platform/health` | `platform.audit.view` | Database check |
+| `GET /platform/support` | `platform.organizations.view` | Support cases from organizations |
+| `GET /support` | `organization.view` | Open a support case |
+| `GET /announcements` | `organization.settings.update` | Email opted-in addresses. Unsubscribe is a signed link |
+| `GET /events/{event}/promo` | `events.manage` | QR code for the event link plus a referral code |
 | `GET/POST /platform/fees` | View, then manage | Immutable platform fee rules |
 | `GET /setup` | `organization.settings.update` | Organization details, logo, currency, and time zone |
 | `GET /venues` | `events.view` | Venues. Writing requires `events.manage` |

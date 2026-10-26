@@ -7,6 +7,7 @@ namespace App\Domain\Catalog;
 use App\Domain\Fees\BookingFeeCalculator;
 use App\Domain\Fees\FeeBasis;
 use App\Domain\Fees\FeeRuleResolver;
+use App\Domain\Growth\CampaignAttribution;
 use App\Domain\Payments\AuthorizeNetGateway;
 use App\Domain\Payments\ChargeInstruction;
 use App\Domain\Payments\GatewayDisabled;
@@ -41,6 +42,7 @@ final class PaidCheckout
         private readonly DiscountBook $discounts,
         private readonly AddOnBook $addOns,
         private readonly SeatBook $seats,
+        private readonly CampaignAttribution $campaign,
     ) {}
 
     /**
@@ -174,6 +176,7 @@ final class PaidCheckout
                 'payment_status' => PaymentStatus::Pending,
                 'provider' => $charge > 0 ? 'authorize_net' : null,
                 'channel' => 'online',
+                ...$this->campaign->forOrder(),
                 'currency' => 'USD',
                 'ticket_subtotal_cents' => $subtotal,
                 'discount_cents' => $discount,
