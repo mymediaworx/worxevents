@@ -79,6 +79,37 @@ write_env() {
   WE_ENV_PATH="${shared}/.env" "$php_bin" << 'PHP'
 <?php
 
+function we_unescape(string $raw): string
+{
+    $raw = trim($raw);
+    if (strlen($raw) >= 2 && $raw[0] === '"' && str_ends_with($raw, '"')) {
+        $inner = substr($raw, 1, -1);
+        $out = '';
+        $length = strlen($inner);
+        for ($i = 0; $i < $length; $i++) {
+            if ($inner[$i] === '\\' && $i + 1 < $length) {
+                $next = $inner[++$i];
+                $out .= match ($next) {
+                    'n' => "\n",
+                    'r' => "\r",
+                    default => $next,
+                };
+                continue;
+            }
+            $out .= $inner[$i];
+        }
+
+        return $out;
+    }
+
+    return trim($raw, " \t'");
+}
+
+function we_quote(string $value): string
+{
+    return '"'.str_replace(['\\', '"', "\n", "\r"], ['\\\\', '\\"', '\\n', '\\r'], $value).'"';
+}
+
 $path = getenv('WE_ENV_PATH');
 $existing = [];
 
@@ -93,23 +124,28 @@ if (is_file($path)) {
             continue;
         }
         [$key, $value] = explode('=', $line, 2);
-        $existing[$key] = trim($value, " \t\"'");
+        $existing[$key] = we_unescape($value);
     }
 }
 
-$incoming = [
-    'APP_KEY' => (string) getenv('APP_KEY'),
+// Database secrets replace the previous values whenever they are provided.
+// APP_KEY is filled only when the server does not already have one, so a
+// later deploy does not invalidate sessions or encrypted columns.
+foreach ([
     'DB_HOST' => (string) getenv('DB_HOST'),
     'DB_PORT' => (string) getenv('DB_PORT'),
     'DB_DATABASE' => (string) getenv('DB_DATABASE'),
     'DB_USERNAME' => (string) getenv('DB_USERNAME'),
     'DB_PASSWORD' => (string) getenv('DB_PASSWORD'),
-];
-
-foreach ($incoming as $key => $value) {
-    if ($value !== '' && ($existing[$key] ?? '') === '') {
+] as $key => $value) {
+    if ($value !== '') {
         $existing[$key] = $value;
     }
+}
+
+$incomingKey = (string) getenv('APP_KEY');
+if (($existing['APP_KEY'] ?? '') === '' && $incomingKey !== '') {
+    $existing['APP_KEY'] = $incomingKey;
 }
 
 if (($existing['APP_KEY'] ?? '') === '') {
@@ -130,16 +166,17 @@ $defaults = [
     'DB_CONNECTION' => 'mysql',
     'DB_HOST' => 'localhost',
     'DB_PORT' => '3306',
-    'SESSION_DRIVER' => $dbReady ? 'database' : 'file',
+    'SESSION_DRIVER' => 'file',
     'SESSION_LIFETIME' => '120',
     'SESSION_SECURE_COOKIE' => 'true',
     'SESSION_HTTP_ONLY' => 'true',
     'SESSION_SAME_SITE' => 'lax',
-    'QUEUE_CONNECTION' => $dbReady ? 'database' : 'sync',
+    'QUEUE_CONNECTION' => 'sync',
     'DB_QUEUE_TABLE' => 'background_jobs',
     'QUEUE_WORK_MAX_TIME' => '20',
-    'CACHE_STORE' => $dbReady ? 'database' : 'file',
+    'CACHE_STORE' => 'file',
     'MAIL_MAILER' => 'log',
+    'MAIL_LOG_CHANNEL' => 'mail',
     'PLATFORM_DOMAINS' => 'app.worxevents.com',
     'WORXEVENTS_APEX' => 'worxevents.com',
     'PAYMENTS_GATEWAY' => 'stripe',
@@ -162,8 +199,7 @@ foreach ($existing as $key => $value) {
     if (! preg_match('/^[A-Z0-9_]+$/', $key)) {
         continue;
     }
-    $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $value);
-    $lines[] = $key.'="'.$escaped.'"';
+    $lines[] = $key.'='.we_quote((string) $value);
 }
 
 file_put_contents($path, implode("\n", $lines)."\n");
@@ -185,13 +221,31 @@ if (! $dbReady) {
     exit(0);
 }
 
+$write = static function () use (&$existing, $path): void {
+    $lines = [];
+    foreach ($existing as $key => $value) {
+        if (! preg_match('/^[A-Z0-9_]+$/', $key)) {
+            continue;
+        }
+        $lines[] = $key.'='.we_quote((string) $value);
+    }
+    file_put_contents($path, implode("\n", $lines)."\n");
+    chmod($path, 0600);
+};
+
 try {
     $dsn = 'mysql:host='.$existing['DB_HOST'].';port='.$existing['DB_PORT'].';dbname='.$existing['DB_DATABASE'].';charset=utf8mb4';
     new PDO($dsn, $existing['DB_USERNAME'], $existing['DB_PASSWORD'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_TIMEOUT => 5,
     ]);
+    $existing['SESSION_DRIVER'] = 'database';
+    $existing['CACHE_STORE'] = 'database';
+    $existing['QUEUE_CONNECTION'] = 'database';
+    $write();
     echo "db_login=ok\n";
 } catch (PDOException $exception) {
+    $write();
     $state = $exception->errorInfo[0] ?? 'unknown';
     echo "db_login=failed sqlstate={$state}\n";
     echo "shared_env=ready\n";
@@ -240,64 +294,150 @@ fi
 
 WORXEVENTS_BASE="$BASE" ACTION=deploy RELEASE="$RELEASE" SOURCE="$work" bash "${work}/scripts/release.sh"
 
+prototype_failed=0
 if grep -q '^db_login=ok$' <<< "$env_log"; then
   if ! command -v mysqldump >/dev/null 2>&1 || ! command -v gzip >/dev/null 2>&1; then
     echo "missing=mysqldump"
     echo "migrated=skipped"
-    exit 1
-  fi
+    prototype_failed=1
+  else
   cnf="$(mktemp)"
   chmod 600 "$cnf"
-  WE_ENV_PATH="${shared}/.env" WE_CNF="$cnf" "$php_bin" << 'PHP'
+  set +e
+  database_name="$(WE_ENV_PATH="${shared}/.env" WE_CNF="$cnf" "$php_bin" << 'PHP'
 <?php
+function we_unescape(string $raw): string
+{
+    $raw = trim($raw);
+    if (strlen($raw) >= 2 && $raw[0] === '"' && str_ends_with($raw, '"')) {
+        $inner = substr($raw, 1, -1);
+        $out = '';
+        $length = strlen($inner);
+        for ($i = 0; $i < $length; $i++) {
+            if ($inner[$i] === '\\' && $i + 1 < $length) {
+                $next = $inner[++$i];
+                $out .= match ($next) {
+                    'n' => "\n",
+                    'r' => "\r",
+                    default => $next,
+                };
+                continue;
+            }
+            $out .= $inner[$i];
+        }
+
+        return $out;
+    }
+
+    return trim($raw, " \t'");
+}
+
+function we_quote(string $value): string
+{
+    return '"'.str_replace(['\\', '"', "\n", "\r"], ['\\\\', '\\"', '\\n', '\\r'], $value).'"';
+}
+
 $path = getenv('WE_ENV_PATH');
 $values = [];
-foreach (file($path, FILE_IGNORE_NEW_LINES) as $line) {
-    if ($line === '' || ! str_contains($line, '=')) {
+foreach (file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+    if ($line === '' || str_starts_with($line, '#') || ! str_contains($line, '=')) {
         continue;
     }
     [$key, $value] = explode('=', $line, 2);
-    $values[$key] = trim($value, " \t\"'");
+    $values[$key] = we_unescape($value);
+}
+$name = (string) ($values['DB_DATABASE'] ?? '');
+if (! preg_match('/^[A-Za-z0-9_]+$/', $name)) {
+    fwrite(STDERR, "backup=failed\n");
+    exit(1);
+}
+$port = (string) ($values['DB_PORT'] ?? '3306');
+if (! preg_match('/^[0-9]+$/', $port)) {
+    fwrite(STDERR, "backup=failed\n");
+    exit(1);
 }
 $cnf = getenv('WE_CNF');
-$body = "[client]\nuser=\"".$values['DB_USERNAME']."\"\npassword=\"".$values['DB_PASSWORD']."\"\nhost=\"".($values['DB_HOST'] ?? 'localhost')."\"\nport=".($values['DB_PORT'] ?? '3306')."\n";
+$body = "[client]\nuser=".we_quote((string) ($values['DB_USERNAME'] ?? ''))."\npassword=".we_quote((string) ($values['DB_PASSWORD'] ?? ''))."\nhost=".we_quote((string) ($values['DB_HOST'] ?? 'localhost'))."\nport=".$port."\n";
 file_put_contents($cnf, $body);
 chmod($cnf, 0600);
-PHP
-  database_name="$(WE_ENV_PATH="${shared}/.env" WE_CNF="$cnf" "$php_bin" << 'PHP'
-<?php
-$path = getenv('WE_ENV_PATH');
-foreach (file($path, FILE_IGNORE_NEW_LINES) as $line) {
-    if (str_starts_with($line, 'DB_DATABASE=')) {
-        echo trim(substr($line, 12), " \t\"'");
-        exit(0);
-    }
-}
+echo $name, "\n";
 PHP
 )"
-  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  dump="${shared}/backups/${stamp}.sql.gz"
-  if ! mysqldump --defaults-extra-file="$cnf" --single-transaction --no-tablespaces "$database_name" | gzip > "$dump"; then
-    rm -f "$cnf" "$dump"
+  dump_status=$?
+  set -e
+  if [[ "$dump_status" -ne 0 || ! "$database_name" =~ ^[A-Za-z0-9_]+$ ]]; then
+    rm -f "$cnf"
     echo "backup=failed"
-    exit 1
+    prototype_failed=1
+  else
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    dump="${shared}/backups/${stamp}.sql.gz"
+    set +e
+    mysqldump --defaults-extra-file="$cnf" --single-transaction --no-tablespaces "$database_name" | gzip > "$dump"
+    dump_status=$?
+    set -e
+    rm -f "$cnf"
+    if [[ "$dump_status" -ne 0 ]] || ! gzip -t "$dump"; then
+      rm -f "$dump"
+      echo "backup=failed"
+      prototype_failed=1
+    else
+      echo "backup=ok"
+      set +e
+      "$php_bin" "${BASE}/laravel/current/artisan" migrate --force --no-interaction
+      migrate_status=$?
+      set -e
+      if [[ "$migrate_status" -ne 0 ]]; then
+        echo "migrated=failed"
+        prototype_failed=1
+      else
+        echo "migrated=yes"
+        set +e
+        "$php_bin" "${BASE}/laravel/current/artisan" worxevents:platform-admin michael@brandworx.ai --name="Michael"
+        admin_status=$?
+        "$php_bin" "${BASE}/laravel/current/artisan" worxevents:demo
+        demo_status=$?
+        set -e
+        if [[ "$admin_status" -ne 0 || "$demo_status" -ne 0 ]]; then
+          echo "seeded=failed"
+          prototype_failed=1
+        else
+          echo "seeded=yes"
+          set +e
+          render_log="$(
+            cd "${BASE}/laravel/current"
+            "$php_bin" -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; try { $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class); $request = Illuminate\Http\Request::create("https://app.worxevents.com/", "GET"); $response = $kernel->handle($request); $body = (string) $response->getContent(); echo "home_status=".$response->getStatusCode()."\n"; echo (str_contains($body, "Demo Community Night") ? "demo_event=visible\n" : "demo_event=missing\n"); echo (str_contains($body, "Demo Paid Showcase") ? "paid_event=visible\n" : "paid_event=missing\n"); } catch (Throwable $e) { echo "home_status=error\nrender_error=".get_class($e)."\ndemo_event=missing\npaid_event=missing\n"; }'
+          )"
+          render_status=$?
+          set -e
+          printf '%s\n' "$render_log"
+          if [[ "$render_status" -ne 0 ]] || ! grep -q '^home_status=200$' <<< "$render_log" || ! grep -q '^demo_event=visible$' <<< "$render_log" || ! grep -q '^paid_event=visible$' <<< "$render_log"; then
+            echo "prototype=incomplete"
+            prototype_failed=1
+          fi
+        fi
+      fi
+    fi
   fi
-  rm -f "$cnf"
-  if ! gzip -t "$dump"; then
-    rm -f "$dump"
-    echo "backup=failed"
-    exit 1
   fi
-  echo "backup=ok"
-  "$php_bin" "${BASE}/laravel/current/artisan" migrate --force --no-interaction
-  echo "migrated=yes"
 else
   echo "migrated=skipped"
 fi
 
-echo "manual=cron"
-echo "manual=https_enforce"
+cron_line="* * * * * ${php_bin} ${BASE}/laravel/current/artisan schedule:run >> /dev/null 2>&1"
+echo "cron_line=${cron_line}"
+current_cron="$(crontab -l 2>/dev/null || true)"
+if printf '%s\n' "$current_cron" | grep -F 'artisan schedule:run' >/dev/null 2>&1; then
+  echo "cron=present"
+elif printf '%s\n%s\n' "$current_cron" "$cron_line" | crontab - 2>/dev/null; then
+  echo "cron=installed"
+else
+  echo "manual=cron"
+  echo "SiteGround Site Tools → Devs → Cron Jobs, every minute. Command:"
+  echo "cron_command=${php_bin} ${BASE}/laravel/current/artisan schedule:run >> /dev/null 2>&1"
+fi
+echo "https=app"
 echo "deployed=${RELEASE}"
-if [[ "$db_failed" -eq 1 ]]; then
+if [[ "$db_failed" -eq 1 || "$prototype_failed" -eq 1 ]]; then
   exit 1
 fi

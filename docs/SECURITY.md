@@ -35,9 +35,9 @@ Still required outside the repository:
 
 - [ ] `APP_KEY`, database password, `MAIL_PASSWORD`, and future Stripe secrets only in `laravel/shared/.env`
 - [ ] `APP_DEBUG=false` and `APP_ENV=production` on the server
-- [ ] HTTPS forced at the host
+- [x] Production HTTP redirects to HTTPS in the application. SiteGround HTTPS Enforce stays off. Session cookies are `Secure` in production.
 - [ ] Database user is not a superuser
-- [ ] First platform admin created with `worxevents:platform-admin` over SSH, not by public registration
+- [x] The deploy runs `worxevents:platform-admin` for the first platform user. It does not print a password or a reset URL. Public registration does not create that user.
 - [ ] `config/organizations.php` reviewed before sync. It is empty in git
 - [ ] Webhook signing secrets, when Stripe is enabled, checked before any `collected` ledger row
 - [ ] Dependency updates: CI runs `composer audit`

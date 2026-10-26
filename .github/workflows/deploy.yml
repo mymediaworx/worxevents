@@ -76,6 +76,8 @@ jobs:
           SG_PORT: ${{ secrets.SG_SSH_PORT }}
           SG_SSH_PASSPHRASE: ${{ secrets.SG_SSH_PASSPHRASE }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
           APP_KEY: ${{ secrets.APP_KEY }}
         run: |
           set -euo pipefail
@@ -84,6 +86,8 @@ jobs:
           if [ -n "${SG_PORT}" ]; then echo "::add-mask::${SG_PORT}"; fi
           if [ -n "${SG_SSH_PASSPHRASE}" ]; then echo "::add-mask::${SG_SSH_PASSPHRASE}"; fi
           if [ -n "${DB_PASSWORD}" ]; then echo "::add-mask::${DB_PASSWORD}"; fi
+          if [ -n "${DB_DATABASE}" ]; then echo "::add-mask::${DB_DATABASE}"; fi
+          if [ -n "${DB_USERNAME}" ]; then echo "::add-mask::${DB_USERNAME}"; fi
           if [ -n "${APP_KEY}" ]; then echo "::add-mask::${APP_KEY}"; fi
 
       - name: Require SiteGround connection secrets
@@ -189,7 +193,7 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          code="$(curl -sS -o /tmp/worxevents-home.txt -w '%{http_code}' --max-time 25 https://app.worxevents.com/)"
+          code="$(curl -sS -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' -o /tmp/worxevents-home.txt -w '%{http_code}' --max-time 25 https://app.worxevents.com/)"
           status=$?
           set -e
           if [[ "$status" -ne 0 ]]; then
@@ -198,5 +202,7 @@ jobs:
           fi
           echo "http_status=${code}" | tee -a "$GITHUB_STEP_SUMMARY"
           if [[ "$code" == "202" ]]; then
-            echo "SiteGround returned 202. That is the host bot check, not a response from Laravel." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "SiteGround returned 202. That is the host bot check, not a response from Laravel. The activate script's home_status line is the Laravel check." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif grep -q 'Demo Community Night' /tmp/worxevents-home.txt; then
+            echo "public_home=demo_event_visible" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
