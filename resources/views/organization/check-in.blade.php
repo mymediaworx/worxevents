@@ -1,8 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
-    <h1>Check-in</h1>
-    <p class="lede">Scan a ticket QR code or type the code. The camera uses the browser barcode detector when the device has one.</p>
+    <div class="page-head">
+        <div>
+            <h1>Check-in</h1>
+            <p class="lede">Scan a ticket QR code or type the code. The camera uses the browser barcode detector when the device has one.</p>
+        </div>
+    </div>
     @if (! empty($status))
         <p class="status" role="status">{{ $status }}</p>
     @endif
@@ -10,7 +14,7 @@
         <p class="alert" role="alert">{{ $message }}</p>
     @endif
 
-    <form method="post" action="{{ route('check-in.scan') }}" class="stack" data-scan-form>
+    <form method="post" action="{{ route('check-in.scan') }}" class="stack panel" data-scan-form>
         @csrf
         <label>Event
             <select name="event_id" required>
@@ -30,7 +34,7 @@
     </form>
 
     <h2>Look up</h2>
-    <form method="post" action="{{ route('check-in.lookup') }}" class="stack">
+    <form method="post" action="{{ route('check-in.lookup') }}" class="stack panel">
         @csrf
         <label>Event
             <select name="event_id" required>
@@ -72,7 +76,7 @@
                 @if ($row->result === 'checked_in' && $row->ticket && auth()->user()->can('events.manage'))
                     <form method="post" action="{{ route('check-in.reverse', $row->ticket) }}">
                         @csrf
-                        <button type="submit">Reverse</button>
+                        <button class="button danger" type="submit">Reverse</button>
                     </form>
                 @endif
             </li>
@@ -80,5 +84,5 @@
             <li>No scans yet.</li>
         @endforelse
     </ul>
-    <script src="{{ asset('js/check-in.js') }}"></script>
+    <script src="{{ asset('js/check-in.js') }}?v={{ filemtime(public_path('js/check-in.js')) }}"></script>
 @endsection

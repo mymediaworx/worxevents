@@ -1,10 +1,14 @@
 @extends('layouts.guest')
 
 @section('content')
-    <h1>{{ $category ? 'Category' : 'Browse events' }}</h1>
-    @if ($category)
-        <p class="lede">Events filed under {{ $category }}.</p>
-    @endif
+    <div class="page-head">
+        <div>
+            <h1>{{ $category ? 'Category' : 'Browse events' }}</h1>
+            @if ($category)
+                <p class="lede">Events filed under {{ $category }}.</p>
+            @endif
+        </div>
+    </div>
     <form method="get" action="{{ $category ? route('public.category', $category) : route('browse') }}" class="filters">
         <label>Search
             <input name="q" value="{{ $filters['q'] }}" type="search">
@@ -24,27 +28,20 @@
         <button class="button" type="submit">Filter</button>
     </form>
     @if ($events->isEmpty())
-        <p>No events match.</p>
+        <p class="empty">No events match.</p>
     @else
         <ul class="cards">
             @foreach ($events as $event)
-                <li class="card">
-                    <h2><a href="{{ route('public.platform.event', ['organization' => $event->organization->slug, 'event' => $event->slug]) }}">{{ $event->title }}</a></h2>
-                    <p class="meta">{{ $event->organization->name }} · {{ $event->starts_at->timezone($event->timezone)->format('M j, Y') }}
-                        @if ($event->venue && $event->venue->city)
-                            · {{ $event->venue->city }}
-                        @endif
-                    </p>
-                </li>
+                @include('partials.event-card', ['event' => $event])
             @endforeach
         </ul>
         @if ($events->hasPages())
-            <nav aria-label="Pages">
+            <nav class="actions" aria-label="Pages">
                 @if ($events->previousPageUrl())
-                    <a href="{{ $events->previousPageUrl() }}">Previous</a>
+                    <a class="button button-quiet" href="{{ $events->previousPageUrl() }}">Previous</a>
                 @endif
                 @if ($events->nextPageUrl())
-                    <a href="{{ $events->nextPageUrl() }}">Next</a>
+                    <a class="button button-quiet" href="{{ $events->nextPageUrl() }}">Next</a>
                 @endif
             </nav>
         @endif

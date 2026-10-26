@@ -105,6 +105,15 @@ require __DIR__.'/../laravel/current/public/index.php';
 PHP
   cp "${current}/public/.htaccess" "${docroot}/.htaccess"
   rm -f "${docroot}/.env" "${docroot}/.env.example"
+  # Apache serves a real file before the front controller. Copy the UI into
+  # public_html so the stylesheet is not rewritten into an HTML 404.
+  local asset
+  for asset in css js images; do
+    if [[ -d "${current}/public/${asset}" ]]; then
+      rm -rf "${docroot}/${asset}"
+      cp -a "${current}/public/${asset}" "${docroot}/${asset}"
+    fi
+  done
   echo "docroot=written"
 }
 

@@ -11,7 +11,7 @@ This report describes the tree on the phase 7 branch. It is not a statement that
 
 ## What was exercised here
 
-On this machine, `php artisan test --compact` reported 99 passed and 659 assertions. Pint and PHPStan level 5 reported no remaining issues. The database was MySQL 8.0.46 and the CLI was PHP 8.3.6. The MySQL 8.4 and MariaDB 11.8 jobs in CI were not run here because Docker is not available. Do not treat this report as those CI jobs passing.
+On this machine, `php artisan test --compact` reported 100 passed and 692 assertions. Pint and PHPStan level 5 reported no remaining issues. The database was MySQL 8.0.46 and the CLI was PHP 8.3.6. The MySQL 8.4 and MariaDB 11.8 jobs in CI were not run here because Docker is not available. Do not treat this report as those CI jobs passing.
 
 Concurrency tests hold the inventory, seat, and check-in row locks and expect a second connection to time out. An accessibility check covers the skip link, `lang`, named controls, the accessible-seat label, focus styles, and `prefers-reduced-motion`. It is not a formal WCAG audit.
 

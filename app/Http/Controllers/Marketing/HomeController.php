@@ -17,7 +17,7 @@ final class HomeController extends Controller
         return response()->view('marketing.home', [
             'title' => 'WorxEvents',
             'description' => 'Ticketing and registration for organizers who keep the customer relationship.',
-            'events' => $this->events->upcoming()->limit(6)->get(),
+            'events' => $this->events->upcoming()->limit(8)->get(),
         ]);
     }
 }

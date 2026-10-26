@@ -20,6 +20,7 @@ Default base: `$HOME/www/app.worxevents.com`. Override with `WORXEVENTS_BASE`. T
 www/app.worxevents.com/
   public_html/index.php          requires ../laravel/current/public/index.php
   public_html/.htaccess          copy of the release's locked htaccess
+  public_html/css|js|images      copied from the release when those directories exist
   laravel/releases/<id>/         one built tree, including vendor
   laravel/current                symlink to the active release
   laravel/previous               symlink to the rollback release
@@ -30,6 +31,8 @@ www/app.worxevents.com/
 ```
 
 Each release's `.env` is a symlink to `laravel/shared/.env`. Its `storage` directory is a symlink to the shared storage. A `.env` that arrived inside the upload is deleted before those links are made.
+
+`public_html` only starts with `index.php` and `.htaccess`. The release script also copies `public/css`, `public/js`, and `public/images` into the document root so Apache can serve them as files. If a copy is missing, Laravel still serves `GET /css/worxevents.css`, `GET /js/{file}.js`, and `GET /images/demo/{file}.svg`. Those routes do not start a session.
 
 ## Commands
 
