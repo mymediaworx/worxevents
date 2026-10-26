@@ -1,8 +1,7 @@
 name: Deploy
 
-# Starts after CI finishes on a push to main. There is no GitHub environment,
-# so this job is not held for a manual approval. The job runs (it is not
-# skipped) and fails closed when CI did not pass.
+# Starts after CI finishes on a push to main. The production environment
+# is the manual approval gate. The job still fails closed when CI did not pass.
 on:
   workflow_run:
     workflows:
@@ -34,6 +33,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: production
     steps:
       - name: Require a successful CI push to main
         env:
@@ -72,9 +72,9 @@ jobs:
 
       - name: Mask connection secrets
         env:
-          SG_HOST: ${{ secrets.SG_HOST }}
-          SG_USER: ${{ secrets.SG_USER }}
-          SG_PORT: ${{ secrets.SG_PORT }}
+          SG_HOST: ${{ secrets.SG_SSH_HOST }}
+          SG_USER: ${{ secrets.SG_SSH_USER }}
+          SG_PORT: ${{ secrets.SG_SSH_PORT }}
           SG_SSH_PASSPHRASE: ${{ secrets.SG_SSH_PASSPHRASE }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           APP_KEY: ${{ secrets.APP_KEY }}
@@ -89,19 +89,17 @@ jobs:
 
       - name: Require SiteGround connection secrets
         env:
-          SG_HOST: ${{ secrets.SG_HOST }}
-          SG_USER: ${{ secrets.SG_USER }}
-          SG_PORT: ${{ secrets.SG_PORT }}
+          SG_HOST: ${{ secrets.SG_SSH_HOST }}
+          SG_USER: ${{ secrets.SG_SSH_USER }}
+          SG_PORT: ${{ secrets.SG_SSH_PORT }}
           SG_SSH_KEY: ${{ secrets.SG_SSH_KEY }}
         run: |
           set -euo pipefail
           missing=0
-          for name in SG_HOST SG_USER SG_PORT SG_SSH_KEY; do
-            if [[ -z "${!name}" ]]; then
-              echo "missing_secret=${name}"
-              missing=1
-            fi
-          done
+          if [[ -z "${SG_HOST}" ]]; then echo "missing_secret=SG_SSH_HOST"; missing=1; fi
+          if [[ -z "${SG_USER}" ]]; then echo "missing_secret=SG_SSH_USER"; missing=1; fi
+          if [[ -z "${SG_PORT}" ]]; then echo "missing_secret=SG_SSH_PORT"; missing=1; fi
+          if [[ -z "${SG_SSH_KEY}" ]]; then echo "missing_secret=SG_SSH_KEY"; missing=1; fi
           if [[ "$missing" -ne 0 ]]; then
             echo "Add the missing GitHub Actions secrets on mymediaworx/worxevents. Values stay out of the repository. The workflow cannot create the SiteGround site or the database password without them."
             exit 1
@@ -142,11 +140,12 @@ jobs:
 
       - name: Upload and activate
         env:
-          SG_HOST: ${{ secrets.SG_HOST }}
-          SG_USER: ${{ secrets.SG_USER }}
-          SG_PORT: ${{ secrets.SG_PORT }}
+          SG_HOST: ${{ secrets.SG_SSH_HOST }}
+          SG_USER: ${{ secrets.SG_SSH_USER }}
+          SG_PORT: ${{ secrets.SG_SSH_PORT }}
           SG_SSH_KEY: ${{ secrets.SG_SSH_KEY }}
           SG_SSH_PASSPHRASE: ${{ secrets.SG_SSH_PASSPHRASE }}
+          WORXEVENTS_BASE: ${{ vars.WORXEVENTS_BASE }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_DATABASE: ${{ secrets.DB_DATABASE }}
@@ -173,7 +172,12 @@ jobs:
             rm -f "/tmp/worxevents-${RELEASE_SHA}.tar.gz"
           fi
           # Values are passed as the remote process environment, not printed.
-          remote_env="$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q APP_KEY=%q' \
+          base_prefix=""
+          if [[ -n "${WORXEVENTS_BASE:-}" ]]; then
+            base_prefix="$(printf 'WORXEVENTS_BASE=%q ' "$WORXEVENTS_BASE")"
+          fi
+          echo "Document root is \$WORXEVENTS_BASE/public_html. Default site directory is ~/www/app.worxevents.com. Set the Actions variable WORXEVENTS_BASE to override that directory." >> "$GITHUB_STEP_SUMMARY"
+          remote_env="${base_prefix}$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q APP_KEY=%q' \
             "$action" "$RELEASE_SHA" "${DB_HOST:-localhost}" "${DB_PORT:-3306}" "${DB_DATABASE:-}" "${DB_USERNAME:-}" "${DB_PASSWORD:-}" "${APP_KEY:-}")"
           {
             echo

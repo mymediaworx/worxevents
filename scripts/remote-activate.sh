@@ -241,6 +241,54 @@ fi
 WORXEVENTS_BASE="$BASE" ACTION=deploy RELEASE="$RELEASE" SOURCE="$work" bash "${work}/scripts/release.sh"
 
 if grep -q '^db_login=ok$' <<< "$env_log"; then
+  if ! command -v mysqldump >/dev/null 2>&1 || ! command -v gzip >/dev/null 2>&1; then
+    echo "missing=mysqldump"
+    echo "migrated=skipped"
+    exit 1
+  fi
+  cnf="$(mktemp)"
+  chmod 600 "$cnf"
+  WE_ENV_PATH="${shared}/.env" WE_CNF="$cnf" "$php_bin" << 'PHP'
+<?php
+$path = getenv('WE_ENV_PATH');
+$values = [];
+foreach (file($path, FILE_IGNORE_NEW_LINES) as $line) {
+    if ($line === '' || ! str_contains($line, '=')) {
+        continue;
+    }
+    [$key, $value] = explode('=', $line, 2);
+    $values[$key] = trim($value, " \t\"'");
+}
+$cnf = getenv('WE_CNF');
+$body = "[client]\nuser=\"".$values['DB_USERNAME']."\"\npassword=\"".$values['DB_PASSWORD']."\"\nhost=\"".($values['DB_HOST'] ?? 'localhost')."\"\nport=".($values['DB_PORT'] ?? '3306')."\n";
+file_put_contents($cnf, $body);
+chmod($cnf, 0600);
+PHP
+  database_name="$(WE_ENV_PATH="${shared}/.env" WE_CNF="$cnf" "$php_bin" << 'PHP'
+<?php
+$path = getenv('WE_ENV_PATH');
+foreach (file($path, FILE_IGNORE_NEW_LINES) as $line) {
+    if (str_starts_with($line, 'DB_DATABASE=')) {
+        echo trim(substr($line, 12), " \t\"'");
+        exit(0);
+    }
+}
+PHP
+)"
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  dump="${shared}/backups/${stamp}.sql.gz"
+  if ! mysqldump --defaults-extra-file="$cnf" --single-transaction --no-tablespaces "$database_name" | gzip > "$dump"; then
+    rm -f "$cnf" "$dump"
+    echo "backup=failed"
+    exit 1
+  fi
+  rm -f "$cnf"
+  if ! gzip -t "$dump"; then
+    rm -f "$dump"
+    echo "backup=failed"
+    exit 1
+  fi
+  echo "backup=ok"
   "$php_bin" "${BASE}/laravel/current/artisan" migrate --force --no-interaction
   echo "migrated=yes"
 else

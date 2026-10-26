@@ -1,6 +1,10 @@
 # Deployment
 
-Pushes to `main` run CI. When that CI succeeds, `.github/workflows/deploy.yml` starts the **Deploy** job automatically. The workflow does not use a GitHub environment, so nothing waits for a manual approval. The job runs and fails if CI did not pass. It is not skipped.
+Pushes to `main` run CI. When that CI succeeds, `.github/workflows/deploy.yml` starts the **Deploy** job. The job uses the GitHub `production` environment, which is the manual approval gate. It still fails if CI did not pass.
+
+The site directory defaults to `~/www/app.worxevents.com`. The document root is always `$WORXEVENTS_BASE/public_html`, so the default document root is `~/www/app.worxevents.com/public_html`. Set the Actions variable `WORXEVENTS_BASE` to the directory that contains `public_html` if that path is different. Do not point it at `public_html` itself.
+
+SSH secrets are `SG_SSH_HOST`, `SG_SSH_USER`, `SG_SSH_PORT`, `SG_SSH_KEY`, and `SG_SSH_PASSPHRASE`. Database secrets are `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. A verified `mysqldump` is required before `migrate`. The passphrase-protected key is unlocked in the runner and is not printed.
 
 The job builds `vendor` on the runner, uploads one archive, and runs `scripts/remote-activate.sh` on the host. That script creates `laravel/shared/.env` when it is missing, generates `APP_KEY` on the server, and does not print the key or the database password. Database credentials come from the `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` Actions secrets. SiteGround SSH uses `SG_HOST`, `SG_USER`, `SG_PORT`, and `SG_SSH_KEY`. None of those values belong in git. If the `app.worxevents.com` directory does not already exist, the job stops with `missing=document_root` and does not invent a SiteGround site.
 
