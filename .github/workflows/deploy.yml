@@ -1,7 +1,7 @@
 name: Deploy
 
-# Starts after CI finishes on a push to main. The production environment
-# is the manual approval gate. The job still fails closed when CI did not pass.
+# Starts after CI finishes on a push to main. There is no manual
+# approval gate. The job still fails closed when CI did not pass.
 on:
   workflow_run:
     workflows:
@@ -33,7 +33,6 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: production
     steps:
       - name: Require a successful CI push to main
         env:

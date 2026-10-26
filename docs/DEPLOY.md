@@ -1,6 +1,6 @@
 # Deployment
 
-Pushes to `main` run CI. When that CI succeeds, `.github/workflows/deploy.yml` starts the **Deploy** job. The job uses the GitHub `production` environment, which is the manual approval gate. It still fails if CI did not pass.
+Pushes to `main` run CI. When that CI succeeds, `.github/workflows/deploy.yml` starts the **Deploy** job immediately. There is no manual approval gate. The job still fails if CI did not pass.
 
 The site directory defaults to `~/www/app.worxevents.com`. The document root is always `$WORXEVENTS_BASE/public_html`, so the default document root is `~/www/app.worxevents.com/public_html`. Set the Actions variable `WORXEVENTS_BASE` to the directory that contains `public_html` if that path is different. Do not point it at `public_html` itself.
 
