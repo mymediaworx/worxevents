@@ -1,9 +1,11 @@
 # Known limitations
 
-Phase 1 is the foundation. These are absent on purpose.
+Phase 2 adds events, venues, free registration, and digital tickets. These are still absent on purpose.
 
-- No events, ticket types, holds, orders, QR codes, check-in scans, or box-office sales. Those routes are shells behind permissions.
-- No card charge, no Stripe HTTP client, and no Authorize.net nonce. Both refund adapters refuse to send.
+- No card charge, no Stripe HTTP client, and no Authorize.net nonce. Both refund adapters refuse to send. Paid ticket types can be saved, and checkout refuses them until a processor is connected.
+- Check-in and box office routes are still shells. Door scanning and walk-up sales are later.
+- Ticket delivery is an SVG QR code and a one-page PDF drawn from the QR matrix. PNG QR codes are not generated, because the app does not require GD.
+- The raw ticket token is only in the email attachments. The database stores its SHA-256. A failed send can be replaced from the order; the old token is voided.
 - No webhook endpoint and no route that marks a refund complete.
 - The fee ledger posts `assessed` only. `collected`, `owed`, and `remitted` can be written by `postLedger` and are not wired to money movement.
 - Fee rules created in the platform UI are platform-wide (`organization_id` null). The resolver can prefer an organization rule, and there is no screen to create one.

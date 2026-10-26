@@ -127,7 +127,7 @@ Ship Stripe first. Authorize.net comes later behind the same interface. The reco
 
 ## Pages and design
 
-The page list and tokens are in [PAGES.md](PAGES.md). Shell pages are real routes with real permission gates. They are not a checkout.
+The page list and tokens are in [PAGES.md](PAGES.md). Free registration checks out on the organization host. Paid checkout is not wired. Box office and check-in remain permission-gated shells.
 
 ## Deployment
 

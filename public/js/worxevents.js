@@ -1,6 +1,6 @@
 (function () {
     var toggle = document.querySelector('.nav-toggle');
-    var nav = document.getElementById('app-nav');
+    var nav = document.getElementById('app-nav') || document.getElementById('site-nav');
 
     if (!toggle || !nav) {
         return;

@@ -8,13 +8,24 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Marketing\DesignSystemController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Organization\DashboardController;
+use App\Http\Controllers\Organization\EventController;
 use App\Http\Controllers\Organization\InvitationController;
 use App\Http\Controllers\Organization\PublicHomeController;
 use App\Http\Controllers\Organization\RefundController;
+use App\Http\Controllers\Organization\ReportController;
 use App\Http\Controllers\Organization\SectionController;
+use App\Http\Controllers\Organization\SetupController;
 use App\Http\Controllers\Organization\TeamController;
+use App\Http\Controllers\Organization\VenueController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\FeeRuleController;
+use App\Http\Controllers\PublicSite\BrowseController;
+use App\Http\Controllers\PublicSite\CheckoutController;
+use App\Http\Controllers\PublicSite\ContentController;
+use App\Http\Controllers\PublicSite\EventPageController;
+use App\Http\Controllers\PublicSite\MediaController;
+use App\Http\Controllers\PublicSite\RegistrationController;
+use App\Http\Controllers\PublicSite\SitemapController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +38,30 @@ Route::get('/', function (Request $request) {
 })->name('home');
 
 Route::get('/design', DesignSystemController::class)->name('design');
+Route::get('/browse', [BrowseController::class, 'index'])->name('browse');
+Route::get('/categories/{slug}', [BrowseController::class, 'category'])->name('public.category');
+Route::get('/about', [ContentController::class, 'about'])->name('about');
+Route::get('/pricing', [ContentController::class, 'pricing'])->name('pricing');
+Route::get('/help', [ContentController::class, 'help'])->name('help');
+Route::get('/contact', [ContentController::class, 'contact'])->name('contact');
+Route::post('/contact', [ContentController::class, 'sendContact'])->middleware('throttle:contact')->name('contact.store');
+Route::get('/legal/terms', [ContentController::class, 'terms'])->name('legal.terms');
+Route::get('/legal/privacy', [ContentController::class, 'privacy'])->name('legal.privacy');
+Route::get('/legal/refunds', [ContentController::class, 'refunds'])->name('legal.refunds');
+Route::get('/accessibility', [ContentController::class, 'accessibility'])->name('accessibility');
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+Route::get('/organizer', [BrowseController::class, 'currentOrganizer'])->name('public.current-organizer');
+Route::get('/o/{organization}', [BrowseController::class, 'organizer'])->name('public.organizer');
+Route::get('/o/{organization}/e/{event}', [EventPageController::class, 'platform'])->name('public.platform.event');
+Route::get('/o/{organization}/v/{venue}', [BrowseController::class, 'platformVenue'])->name('public.platform.venue');
+Route::get('/v/{venue}', [BrowseController::class, 'venue'])->name('public.venue');
+Route::get('/e/{slug}', [EventPageController::class, 'organization'])->name('public.event');
+Route::post('/e/{slug}/hold', [CheckoutController::class, 'hold'])->middleware('throttle:checkout')->name('checkout.hold');
+Route::post('/e/{slug}/checkout', [CheckoutController::class, 'store'])->middleware('throttle:checkout')->name('checkout.store');
+Route::get('/registration/{reference}', [RegistrationController::class, 'show'])->name('registration.show');
+Route::post('/registration/{reference}', [RegistrationController::class, 'confirm'])->middleware('throttle:checkout')->name('registration.confirm');
+Route::get('/media/logo', [MediaController::class, 'logo'])->name('media.logo');
+Route::get('/media/events/{event}', [MediaController::class, 'eventImage'])->name('media.event');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -58,7 +93,29 @@ Route::post('/invitations/{token}/accept', [InvitationController::class, 'accept
 
 Route::middleware(['auth', 'organization.member', 'verified'])->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
-    Route::get('/events', [SectionController::class, 'events'])->middleware('permission:events.view')->name('events');
+    Route::get('/events', [EventController::class, 'index'])->middleware('permission:events.view')->name('events');
+    Route::get('/events/create', [EventController::class, 'create'])->middleware('permission:events.manage')->name('events.create');
+    Route::post('/events', [EventController::class, 'store'])->middleware('permission:events.manage')->name('events.store');
+    Route::get('/events/{event}/edit', [EventController::class, 'edit'])->middleware('permission:events.manage')->name('events.edit');
+    Route::post('/events/{event}', [EventController::class, 'update'])->middleware('permission:events.manage')->name('events.update');
+    Route::post('/events/{event}/publish', [EventController::class, 'publish'])->middleware('permission:events.manage')->name('events.publish');
+    Route::post('/events/{event}/status', [EventController::class, 'status'])->middleware('permission:events.manage')->name('events.status');
+    Route::get('/events/{event}/preview', [EventController::class, 'preview'])->middleware('permission:events.view')->name('events.preview');
+    Route::post('/events/{event}/sessions', [EventController::class, 'storeSession'])->middleware('permission:events.manage')->name('events.sessions.store');
+    Route::post('/events/{event}/tickets', [EventController::class, 'storeTicket'])->middleware('permission:events.manage')->name('events.tickets.store');
+    Route::post('/events/{event}/questions', [EventController::class, 'storeQuestion'])->middleware('permission:events.manage')->name('events.questions.store');
+    Route::post('/orders/{order}/reissue', [EventController::class, 'reissue'])->middleware('permission:events.manage')->name('orders.reissue');
+    Route::get('/venues', [VenueController::class, 'index'])->middleware('permission:events.view')->name('venues');
+    Route::get('/venues/create', [VenueController::class, 'create'])->middleware('permission:events.manage')->name('venues.create');
+    Route::post('/venues', [VenueController::class, 'store'])->middleware('permission:events.manage')->name('venues.store');
+    Route::get('/venues/{venue}/edit', [VenueController::class, 'edit'])->middleware('permission:events.manage')->name('venues.edit');
+    Route::post('/venues/{venue}', [VenueController::class, 'update'])->middleware('permission:events.manage')->name('venues.update');
+    Route::get('/reports', ReportController::class)->middleware('permission:finance.view')->name('reports');
+    Route::get('/setup', [SetupController::class, 'show'])->middleware('permission:organization.settings.update')->name('setup');
+    Route::post('/setup/details', [SetupController::class, 'details'])->middleware('permission:organization.settings.update')->name('setup.details');
+    Route::post('/setup/branding', [SetupController::class, 'branding'])->middleware('permission:organization.settings.update')->name('setup.branding');
+    Route::post('/setup/locale', [SetupController::class, 'locale'])->middleware('permission:organization.settings.update')->name('setup.locale');
+    Route::post('/setup/finish', [SetupController::class, 'finish'])->middleware('permission:organization.settings.update')->name('setup.finish');
     Route::get('/box-office', [SectionController::class, 'boxOffice'])->middleware('permission:tickets.sell')->name('box-office');
     Route::get('/check-in', [SectionController::class, 'checkIn'])->middleware('permission:checkin.scan')->name('check-in');
     Route::get('/tickets', [SectionController::class, 'tickets'])->middleware('permission:orders.view_own')->name('tickets');

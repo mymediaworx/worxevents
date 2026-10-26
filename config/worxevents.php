@@ -12,4 +12,5 @@ return [
     'apex' => env('WORXEVENTS_APEX', 'worxevents.com'),
     'pagination_max' => 100,
     'queue_max_time' => (int) env('QUEUE_WORK_MAX_TIME', 20),
+    'reservation_minutes' => 15,
 ];
