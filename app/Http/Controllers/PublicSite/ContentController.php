@@ -90,6 +90,21 @@ final class ContentController extends Controller
         return redirect()->route('contact')->with('status', 'Message received.');
     }
 
+    public function analyticsConsent(): RedirectResponse
+    {
+        return back()->withCookie(cookie(
+            'worxevents_analytics',
+            '1',
+            60 * 24 * 180,
+            '/',
+            null,
+            false,
+            true,
+            false,
+            'lax',
+        ));
+    }
+
     private function page(string $title, string $body): Response
     {
         return response()->view('public.page', [

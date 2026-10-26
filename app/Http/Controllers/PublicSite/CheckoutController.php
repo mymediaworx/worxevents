@@ -10,6 +10,7 @@ use App\Domain\Catalog\FreeCheckout;
 use App\Domain\Catalog\InventoryBook;
 use App\Domain\Catalog\PaidCheckout;
 use App\Domain\Catalog\SeatBook;
+use App\Domain\Growth\EmailList;
 use App\Domain\Tickets\TicketMailer;
 use App\Enums\EventStatus;
 use App\Enums\TicketVisibility;
@@ -35,6 +36,7 @@ final class CheckoutController extends Controller
         private readonly EventPageData $pages,
         private readonly TicketMailer $mailer,
         private readonly SeatBook $seats,
+        private readonly EmailList $consents,
     ) {}
 
     public function hold(Request $request, string $slug): Response
@@ -141,6 +143,10 @@ final class CheckoutController extends Controller
         }
 
         $this->mailer->send($result['order'], $event->title, $result['passes']);
+
+        if ($request->boolean('email_consent')) {
+            $this->consents->grant($event->organization_id, $guestEmail);
+        }
 
         return response()->view('public.confirmation', [
             'title' => 'Registration confirmed',

@@ -188,6 +188,9 @@
                     <p id="accept-error" class="alert" role="alert"></p>
                 @endif
             @endif
+            <label>Email me about future events from this organizer
+                <input type="checkbox" name="email_consent" value="1">
+            </label>
             <button class="button" type="submit">{{ !empty($hasPaidTickets) ? 'Pay now' : 'Complete free registration' }}</button>
         </form>
         @if (!empty($hasPaidTickets))

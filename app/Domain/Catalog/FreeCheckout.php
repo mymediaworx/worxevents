@@ -6,6 +6,7 @@ namespace App\Domain\Catalog;
 
 use App\Domain\Fees\BookingFeeRecorder;
 use App\Domain\Fees\FeeBasis;
+use App\Domain\Growth\CampaignAttribution;
 use App\Domain\Tickets\PassFactory;
 use App\Domain\Tickets\TicketPass;
 use App\Enums\IssuedTicketStatus;
@@ -36,6 +37,7 @@ final class FreeCheckout
         private readonly DiscountBook $discounts,
         private readonly AddOnBook $addOns,
         private readonly SeatBook $seats,
+        private readonly CampaignAttribution $campaign,
     ) {}
 
     /**
@@ -102,6 +104,7 @@ final class FreeCheckout
                 'guest_email' => strtolower($guestEmail),
                 'status' => OrderStatus::Completed,
                 'channel' => 'online',
+                ...$this->campaign->forOrder(),
                 'currency' => 'USD',
                 'ticket_subtotal_cents' => $subtotal,
                 'discount_cents' => $discount,

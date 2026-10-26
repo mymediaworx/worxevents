@@ -13,7 +13,16 @@
             <a class="brand" href="{{ route('platform.dashboard') }}">WorxEvents</a>
             <nav class="nav" aria-label="Platform">
                 <a href="{{ route('platform.dashboard') }}">Organizations</a>
+                <a href="{{ route('platform.users') }}">Users</a>
                 <a href="{{ route('platform.fees') }}">Fee rules</a>
+                <a href="{{ route('platform.plans') }}">Plans</a>
+                <a href="{{ route('platform.payments') }}">Payments</a>
+                <a href="{{ route('platform.disputes') }}">Disputes</a>
+                <a href="{{ route('platform.support') }}">Support</a>
+                <a href="{{ route('platform.audit') }}">Audit</a>
+                <a href="{{ route('platform.jobs') }}">Jobs</a>
+                <a href="{{ route('platform.security') }}">Security</a>
+                <a href="{{ route('platform.health') }}">Health</a>
                 <a href="{{ route('design') }}">Design</a>
                 <form method="post" action="{{ route('logout') }}">
                     @csrf

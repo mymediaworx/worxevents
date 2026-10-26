@@ -23,6 +23,9 @@ Phase 3 adds Authorize.net sandbox checkout, refunds, and fee remittance. These 
 - Mail is synchronous. The database queue does nothing until cron runs `schedule:run`.
 - Sessions and cache use the database. There is no Redis.
 - Pagination stops at 100 rows.
+- Analytics does not load unless the visitor opts in and `WORXEVENTS_ANALYTICS_HOOK` is an https URL. The default is empty.
+- Announcements go only to addresses that checked the consent box and have not unsubscribed. The list is capped at 100 recipients per send.
+- Platform plans are labels. They do not charge a card.
 - A formal WCAG audit has not been run. Tokens and targets are aimed at WCAG 2.2 AA.
 - SiteGround for this domain has not been measured ([HOSTING.md](HOSTING.md)).
 - CI is written for MySQL 8.4 and MariaDB 11.8. The machine that produced this phase ran PHPUnit on MySQL 8.0.46 only. Docker was not available here, so those two engines were not executed in this run.
