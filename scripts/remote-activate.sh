@@ -4,6 +4,11 @@
 # laravel/shared/.env. This script does not print those values.
 set -euo pipefail
 
+# An empty APP_KEY in the process environment hides the key in shared/.env.
+# Keep a copy for the writer, then drop it so artisan and HTTP use the file.
+incoming_app_key="${APP_KEY:-}"
+unset APP_KEY || true
+
 ACTION="${ACTION:-deploy}"
 RELEASE="${RELEASE:?RELEASE is required}"
 BASE="${WORXEVENTS_BASE:-${HOME}/www/app.worxevents.com}"
@@ -143,7 +148,7 @@ foreach ([
     }
 }
 
-$incomingKey = (string) getenv('APP_KEY');
+$incomingKey = (string) getenv('WE_APP_KEY');
 if (($existing['APP_KEY'] ?? '') === '' && $incomingKey !== '') {
     $existing['APP_KEY'] = $incomingKey;
 }
@@ -256,7 +261,7 @@ echo "shared_env=ready\n";
 PHP
 }
 
-env_log="$(write_env)"
+env_log="$(WE_APP_KEY="$incoming_app_key" write_env)"
 printf '%s\n' "$env_log"
 db_failed=0
 if grep -q '^db_login=failed' <<< "$env_log"; then
@@ -406,7 +411,7 @@ PHP
           set +e
           render_log="$(
             cd "${BASE}/laravel/current"
-            "$php_bin" -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; try { $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class); $request = Illuminate\Http\Request::create("https://app.worxevents.com/", "GET"); $response = $kernel->handle($request); $body = (string) $response->getContent(); echo "home_status=".$response->getStatusCode()."\n"; echo (str_contains($body, "Demo Community Night") ? "demo_event=visible\n" : "demo_event=missing\n"); echo (str_contains($body, "Demo Paid Showcase") ? "paid_event=visible\n" : "paid_event=missing\n"); } catch (Throwable $e) { echo "home_status=error\nrender_error=".get_class($e)."\ndemo_event=missing\npaid_event=missing\n"; }'
+            "$php_bin" -r 'require "vendor/autoload.php"; $app = require "bootstrap/app.php"; $logPath = null; try { $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class); $logPath = storage_path("logs/laravel.log"); $before = is_file($logPath) ? filesize($logPath) : 0; $request = Illuminate\Http\Request::create("https://app.worxevents.com/", "GET"); $response = $kernel->handle($request); $body = (string) $response->getContent(); echo "home_status=".$response->getStatusCode()."\n"; echo (str_contains($body, "Demo Community Night") ? "demo_event=visible\n" : "demo_event=missing\n"); echo (str_contains($body, "Demo Paid Showcase") ? "paid_event=visible\n" : "paid_event=missing\n"); if ($response->getStatusCode() >= 500) { $chunk = ""; if (is_file($logPath)) { $handle = fopen($logPath, "rb"); if ($handle !== false) { fseek($handle, $before); $chunk = stream_get_contents($handle) ?: ""; fclose($handle); } } $class = "unknown"; if (preg_match("/([A-Za-z0-9_\\\\]+(?:Exception|Error))/", $chunk, $match)) { $class = $match[1]; } echo "render_error=".$class."\n"; } } catch (Throwable $e) { echo "home_status=error\nrender_error=".get_class($e)."\ndemo_event=missing\npaid_event=missing\n"; }'
           )"
           render_status=$?
           set -e

@@ -107,7 +107,7 @@ DB_PORT=1 \
 DB_DATABASE=worxevents_absent \
 DB_USERNAME=worxevents_absent \
 DB_PASSWORD='s3cret-quote"slash\tail' \
-APP_KEY='base64:should-not-replace' \
+APP_KEY='' \
 WORXEVENTS_BASE="$base" ACTION=deploy RELEASE=ghi789 \
   bash "${root}/scripts/remote-activate.sh" > "${tmp}/bad-again.txt"
 status=$?
