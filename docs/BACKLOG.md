@@ -24,7 +24,7 @@ Shipped on this branch: platform screens for users and roles, suspend and reinst
 
 ## Phase 7 — Readiness
 
-Security review, concurrency tests for inventory, seats, and check-in, an accessibility pass, and the operator manuals: admin, organizer, troubleshooting, backup and restore, update and rollback, production readiness, and known limitations.
+Shipped on this branch: a code security review recorded in [SECURITY.md](SECURITY.md), concurrency tests that hold the inventory, seat, and check-in row locks, an accessibility check of skip links, labels, the accessible-seat text, focus styles, and reduced motion, and the operator manuals [ADMIN.md](ADMIN.md), [ORGANIZER.md](ORGANIZER.md), [TROUBLESHOOTING.md](TROUBLESHOOTING.md), [BACKUP.md](BACKUP.md), [UPDATE.md](UPDATE.md), and [READINESS.md](READINESS.md). Known limits stay in [LIMITATIONS.md](LIMITATIONS.md). This is not a penetration test or a formal WCAG audit.
 
 ## Hardening that can land beside any phase
 

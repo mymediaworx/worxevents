@@ -1,6 +1,6 @@
 # Phase 1 architecture and implementation plan
 
-Status: the plan in this document is what Phase 1 implements. Later phases are listed in [BACKLOG.md](BACKLOG.md) and are not built here.
+Status: the plan in this document is what Phase 1 implements. Phases 2–7 are shipped on their own branches and summarized in [BACKLOG.md](BACKLOG.md). Operator manuals are linked from the README.
 
 ReserveWorx (`mymediaworx/reserveworx`) was readable. Its tenancy, membership gates, tenant-bound sign-in, sync command, fee snapshots, and CI shape were adapted to organizations and events. The code was not vendored. DistroSKU was not consulted.
 
