@@ -125,7 +125,7 @@ Both providers sit behind `PaymentGateway` (`name`, `isReady`, `refund`). Author
 
 ## Pages and design
 
-The page list and tokens are in [PAGES.md](PAGES.md). Free registration and Authorize.net checkout run on the organization host. Stripe does not charge. Box office and check-in remain permission-gated shells.
+The page list and tokens are in [PAGES.md](PAGES.md). Free registration and Authorize.net checkout run on the organization host. Stripe does not charge. Check-in and box office share ticket inventory with online sales. Door card payments are recorded, not charged through Authorize.net.
 
 ## Deployment
 

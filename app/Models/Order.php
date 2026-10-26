@@ -30,6 +30,7 @@ class Order extends Model
         'provider_reference',
         'card_last_four',
         'channel',
+        'tender',
         'currency',
         'ticket_subtotal_cents',
         'discount_cents',
