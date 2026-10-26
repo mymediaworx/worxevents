@@ -108,6 +108,11 @@ prune_newest() {
   local keep="$2"
   local index=0
   local stamp path
+  local listing
+  # A temporary file, not a process substitution. SiteGround bash cannot open
+  # the /dev/fd entry that process substitution uses, and the deploy stops.
+  listing="$(mktemp)"
+  find "$dir" -maxdepth 1 -type f ! -name '.gitignore' -printf '%T@\t%p\n' | sort -nr > "$listing"
   while IFS=$'\t' read -r stamp path; do
     [[ -n "$path" ]] || continue
     index=$((index + 1))
@@ -115,7 +120,8 @@ prune_newest() {
       rm -f "$path"
       echo "pruned_file=${path}"
     fi
-  done < <(find "$dir" -maxdepth 1 -type f ! -name '.gitignore' -printf '%T@\t%p\n' | sort -nr)
+  done < "$listing"
+  rm -f "$listing"
 }
 
 prune_runtime() {
