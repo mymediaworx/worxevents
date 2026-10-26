@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Event extends Model
 {
@@ -30,6 +31,8 @@ class Event extends Model
         'status',
         'timezone',
         'is_multi_day',
+        'recurrence_frequency',
+        'recurrence_until',
         'starts_at',
         'ends_at',
         'sales_starts_at',
@@ -51,6 +54,7 @@ class Event extends Model
         return [
             'status' => EventStatus::class,
             'is_multi_day' => 'boolean',
+            'recurrence_until' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'sales_starts_at' => 'datetime',
@@ -116,6 +120,22 @@ class Event extends Model
     public function questions(): HasMany
     {
         return $this->hasMany(EventQuestion::class)->orderBy('sort');
+    }
+
+    /**
+     * @return HasMany<AddOn, $this>
+     */
+    public function addOns(): HasMany
+    {
+        return $this->hasMany(AddOn::class)->orderBy('name');
+    }
+
+    /**
+     * @return HasOne<SeatingPlan, $this>
+     */
+    public function seatingPlan(): HasOne
+    {
+        return $this->hasOne(SeatingPlan::class);
     }
 
     public function isPubliclyVisible(): bool

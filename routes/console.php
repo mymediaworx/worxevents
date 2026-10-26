@@ -12,3 +12,7 @@ Schedule::command(sprintf(
 Schedule::command('worxevents:reservations:release')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('worxevents:seats:release')
+    ->everyMinute()
+    ->withoutOverlapping();

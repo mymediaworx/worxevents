@@ -26,7 +26,17 @@ final class EventPageData
      */
     public function for(Event $event, ?string $checkoutError = null): array
     {
-        $event->loadMissing(['organization.domains', 'venue', 'category', 'tags', 'sessions', 'ticketTypes', 'questions']);
+        $event->loadMissing([
+            'organization.domains',
+            'venue',
+            'category',
+            'tags',
+            'sessions',
+            'ticketTypes',
+            'questions',
+            'addOns',
+            'seatingPlan.sections.rows.seats',
+        ]);
         $url = $this->urls->url($event);
         $image = $this->imageUrl($event);
         $registerable = $event->ticketTypes->filter(function (TicketType $type): bool {

@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Marketing\DesignSystemController;
 use App\Http\Controllers\Marketing\HomeController;
 use App\Http\Controllers\Organization\BoxOfficeController;
+use App\Http\Controllers\Organization\CatalogExtrasController;
 use App\Http\Controllers\Organization\CheckInController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\EventController;
@@ -63,6 +64,8 @@ Route::get('/e/{slug}', [EventPageController::class, 'organization'])->name('pub
 Route::post('/e/{slug}/hold', [CheckoutController::class, 'hold'])->middleware('throttle:checkout')->name('checkout.hold');
 Route::post('/e/{slug}/quote', [CheckoutController::class, 'quote'])->middleware('throttle:checkout')->name('checkout.quote');
 Route::post('/e/{slug}/checkout', [CheckoutController::class, 'store'])->middleware('throttle:checkout')->name('checkout.store');
+Route::post('/e/{slug}/waitlist', [CheckoutController::class, 'waitlist'])->middleware('throttle:checkout')->name('checkout.waitlist');
+Route::post('/e/{slug}/seats/{seat}/hold', [CheckoutController::class, 'holdSeat'])->middleware('throttle:checkout')->name('checkout.seat-hold');
 Route::post('/webhooks/authorize-net/{organizationId}', [AuthorizeNetWebhookController::class, 'store'])
     ->middleware('throttle:webhooks')
     ->name('webhooks.authorize-net');
@@ -112,6 +115,16 @@ Route::middleware(['auth', 'organization.member', 'verified'])->group(function (
     Route::post('/events/{event}/sessions', [EventController::class, 'storeSession'])->middleware('permission:events.manage')->name('events.sessions.store');
     Route::post('/events/{event}/tickets', [EventController::class, 'storeTicket'])->middleware('permission:events.manage')->name('events.tickets.store');
     Route::post('/events/{event}/questions', [EventController::class, 'storeQuestion'])->middleware('permission:events.manage')->name('events.questions.store');
+    Route::get('/events/{event}/extras', [CatalogExtrasController::class, 'show'])->middleware('permission:events.manage')->name('events.extras');
+    Route::post('/events/{event}/series', [CatalogExtrasController::class, 'storeSeries'])->middleware('permission:events.manage')->name('events.series');
+    Route::post('/events/{event}/discounts', [CatalogExtrasController::class, 'storeDiscount'])->middleware('permission:events.manage')->name('events.discounts.store');
+    Route::post('/events/{event}/add-ons', [CatalogExtrasController::class, 'storeAddOn'])->middleware('permission:events.manage')->name('events.add-ons.store');
+    Route::post('/events/{event}/seating/plan', [CatalogExtrasController::class, 'storePlan'])->middleware('permission:events.manage')->name('events.seating.plan');
+    Route::post('/events/{event}/seating/sections', [CatalogExtrasController::class, 'storeSection'])->middleware('permission:events.manage')->name('events.seating.sections');
+    Route::post('/events/{event}/seating/rows', [CatalogExtrasController::class, 'storeRow'])->middleware('permission:events.manage')->name('events.seating.rows');
+    Route::post('/events/{event}/seating/seats', [CatalogExtrasController::class, 'storeSeat'])->middleware('permission:events.manage')->name('events.seating.seats');
+    Route::post('/events/{event}/waitlist/{entry}/offer', [CatalogExtrasController::class, 'offer'])->middleware('permission:events.manage')->name('events.waitlist.offer');
+    Route::post('/tickets/{ticket}/transfer', [CatalogExtrasController::class, 'transfer'])->middleware('permission:events.manage')->name('tickets.transfer');
     Route::post('/orders/{order}/reissue', [EventController::class, 'reissue'])->middleware('permission:events.manage')->name('orders.reissue');
     Route::get('/venues', [VenueController::class, 'index'])->middleware('permission:events.view')->name('venues');
     Route::get('/venues/create', [VenueController::class, 'create'])->middleware('permission:events.manage')->name('venues.create');

@@ -9,13 +9,20 @@ use App\Domain\Catalog\EventPageData;
 use App\Domain\Catalog\FreeCheckout;
 use App\Domain\Catalog\InventoryBook;
 use App\Domain\Catalog\PaidCheckout;
+use App\Domain\Catalog\SeatBook;
 use App\Domain\Tickets\TicketMailer;
 use App\Enums\EventStatus;
 use App\Enums\TicketVisibility;
 use App\Http\Controllers\Controller;
+use App\Models\AddOn;
 use App\Models\Event;
+use App\Models\Seat;
+use App\Models\SeatingPlan;
+use App\Models\SeatingRow;
 use App\Models\TicketType;
 use App\Models\User;
+use App\Models\WaitlistEntry;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -27,6 +34,7 @@ final class CheckoutController extends Controller
         private readonly InventoryBook $inventory,
         private readonly EventPageData $pages,
         private readonly TicketMailer $mailer,
+        private readonly SeatBook $seats,
     ) {}
 
     public function hold(Request $request, string $slug): Response
@@ -62,7 +70,7 @@ final class CheckoutController extends Controller
         $event = $this->event($request, $slug);
 
         try {
-            $quote = $this->paid->preview($event, $this->lines($request));
+            $quote = $this->paid->preview($event, $this->lines($request), $this->discountCode($request), $this->addOnSelections($request));
         } catch (CheckoutRejected $exception) {
             return $this->page($event, $exception->getMessage(), $exception->status);
         }
@@ -96,9 +104,12 @@ final class CheckoutController extends Controller
             trim(...),
             explode(',', (string) $request->input('hold_token', '')),
         ), fn (string $token): bool => $token !== ''));
+        $discount = $this->discountCode($request);
+        $addOns = $this->addOnSelections($request);
+        $seatIds = $this->seatIds($request);
 
         try {
-            $result = $this->containsPaid($event, $lines)
+            $result = $this->containsPaid($event, $lines, $addOns)
                 ? $this->paid->place(
                     $event,
                     $lines,
@@ -109,6 +120,9 @@ final class CheckoutController extends Controller
                     $tokens,
                     trim((string) $request->input('data_descriptor')),
                     trim((string) $request->input('data_value')),
+                    $discount,
+                    $addOns,
+                    $seatIds,
                 )
                 : $this->checkout->place(
                     $event,
@@ -118,6 +132,9 @@ final class CheckoutController extends Controller
                     $guestEmail,
                     $buyer instanceof User ? $buyer->id : null,
                     $tokens,
+                    $discount,
+                    $addOns,
+                    $seatIds,
                 );
         } catch (CheckoutRejected $exception) {
             return $this->page($event, $exception->getMessage(), $exception->status);
@@ -128,9 +145,58 @@ final class CheckoutController extends Controller
         return response()->view('public.confirmation', [
             'title' => 'Registration confirmed',
             'robots' => 'noindex, nofollow',
-            'order' => $result['order']->load(['lines', 'attendees']),
+            'order' => $result['order']->load(['lines', 'attendees', 'addOns']),
             'eventTitle' => $event->title,
         ]);
+    }
+
+    public function waitlist(Request $request, string $slug): Response
+    {
+        $event = $this->event($request, $slug);
+        $name = trim((string) $request->input('name'));
+        $email = strtolower(trim((string) $request->input('email')));
+
+        if ($name === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->page($event, 'Enter the name and email for the waitlist.', 422);
+        }
+
+        try {
+            WaitlistEntry::query()->create([
+                'organization_id' => $event->organization_id,
+                'event_id' => $event->id,
+                'name' => $name,
+                'email' => $email,
+                'status' => 'waiting',
+            ]);
+        } catch (QueryException) {
+            return $this->page($event, 'That email is already on the waitlist.', 422);
+        }
+
+        $data = $this->pages->for($event);
+        $data['status'] = 'You are on the waitlist.';
+
+        return response()->view('public.event', $data);
+    }
+
+    public function holdSeat(Request $request, string $slug, Seat $seat): Response
+    {
+        $event = $this->event($request, $slug);
+        $plan = SeatingPlan::query()->where('event_id', $event->id)->first();
+
+        if (! $plan instanceof SeatingPlan || ! $this->seatOnPlan($seat, $plan)) {
+            return $this->page($event, 'That seat is not part of this event.', 404);
+        }
+
+        try {
+            $this->seats->hold($seat);
+        } catch (CheckoutRejected $exception) {
+            return $this->page($event, $exception->getMessage(), $exception->status);
+        }
+
+        $data = $this->pages->for($event);
+        $data['status'] = 'Seat held.';
+
+        return response()->view('public.event', $data);
     }
 
     private function event(Request $request, string $slug): Event
@@ -168,8 +234,9 @@ final class CheckoutController extends Controller
 
     /**
      * @param  list<array{ticket_type_id: string, quantity: int, attendees: list<array{name: string, email: string}>}>  $lines
+     * @param  array<string, int>  $addOns
      */
-    private function containsPaid(Event $event, array $lines): bool
+    private function containsPaid(Event $event, array $lines, array $addOns): bool
     {
         foreach ($lines as $line) {
             $type = TicketType::query()
@@ -182,7 +249,81 @@ final class CheckoutController extends Controller
             }
         }
 
+        foreach ($addOns as $id => $quantity) {
+            if ($quantity < 1) {
+                continue;
+            }
+
+            $addOn = AddOn::query()->whereKey($id)->where('event_id', $event->id)->first();
+
+            if ($addOn instanceof AddOn && $addOn->price_cents > 0) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private function discountCode(Request $request): ?string
+    {
+        $code = strtoupper(trim((string) $request->input('discount_code', '')));
+
+        return $code === '' ? null : $code;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function addOnSelections(Request $request): array
+    {
+        $raw = $request->input('add_ons', []);
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $selections = [];
+
+        foreach ($raw as $id => $quantity) {
+            if (is_string($id) && (int) $quantity > 0) {
+                $selections[$id] = (int) $quantity;
+            }
+        }
+
+        return $selections;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function seatIds(Request $request): array
+    {
+        $raw = $request->input('seats', []);
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach ($raw as $id) {
+            if (is_string($id) && $id !== '') {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    private function seatOnPlan(Seat $seat, SeatingPlan $plan): bool
+    {
+        $rowId = $seat->seating_row_id;
+        $sectionIds = $plan->sections()->pluck('id');
+
+        return SeatingRow::query()
+            ->whereKey($rowId)
+            ->whereIn('seating_section_id', $sectionIds)
+            ->exists();
     }
 
     /**

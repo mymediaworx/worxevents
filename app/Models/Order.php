@@ -34,6 +34,7 @@ class Order extends Model
         'currency',
         'ticket_subtotal_cents',
         'discount_cents',
+        'discount_code',
         'fee_cents',
         'total_cents',
         'reference',
@@ -72,6 +73,14 @@ class Order extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(OrderLine::class);
+    }
+
+    /**
+     * @return HasMany<OrderAddOn, $this>
+     */
+    public function addOns(): HasMany
+    {
+        return $this->hasMany(OrderAddOn::class);
     }
 
     /**

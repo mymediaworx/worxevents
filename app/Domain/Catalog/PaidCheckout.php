@@ -38,19 +38,24 @@ final class PaidCheckout
         private readonly BookingFeeCalculator $calculator,
         private readonly FeeRuleResolver $rules,
         private readonly OrganizationManager $organizations,
+        private readonly DiscountBook $discounts,
+        private readonly AddOnBook $addOns,
+        private readonly SeatBook $seats,
     ) {}
 
     /**
      * @param  list<array{ticket_type_id: string, quantity: int, attendees: list<array{name: string, email: string}>}>  $lines
-     * @return array{ticket_subtotal_cents: int, fee_cents: int, total_cents: int, currency: string}
+     * @param  array<string, int>  $addOnSelections
+     * @return array{ticket_subtotal_cents: int, discount_cents: int, add_on_cents: int, fee_cents: int, total_cents: int, currency: string}
      */
-    public function preview(Event $event, array $lines): array
+    public function preview(Event $event, array $lines, ?string $discountCode = null, array $addOnSelections = []): array
     {
         $this->assertContext($event);
         $this->assertReady();
 
         $subtotal = 0;
         $paid = false;
+        $typeIds = [];
 
         foreach ($lines as $line) {
             $type = TicketType::query()
@@ -66,6 +71,7 @@ final class PaidCheckout
                 $paid = true;
             }
 
+            $typeIds[] = $type->id;
             $subtotal += $type->price_cents * $line['quantity'];
         }
 
@@ -73,12 +79,16 @@ final class PaidCheckout
             throw new CheckoutRejected('This registration has no paid tickets.');
         }
 
-        $fee = $this->fee($event->organization_id, $subtotal);
+        $addOn = $this->addOns->quote($event, $addOnSelections);
+        $discount = $this->discounts->amount($event, $subtotal, $typeIds, $discountCode, false);
+        $fee = $this->fee($event->organization_id, $subtotal, $discount, $addOn['cents']);
 
         return [
             'ticket_subtotal_cents' => $subtotal,
+            'discount_cents' => $discount,
+            'add_on_cents' => $addOn['cents'],
             'fee_cents' => $fee,
-            'total_cents' => $subtotal + $fee,
+            'total_cents' => $subtotal - $discount + $addOn['cents'] + $fee,
             'currency' => 'USD',
         ];
     }
@@ -87,6 +97,8 @@ final class PaidCheckout
      * @param  list<array{ticket_type_id: string, quantity: int, attendees: list<array{name: string, email: string}>}>  $lines
      * @param  array<string, string>  $answers
      * @param  list<string>  $holdTokens
+     * @param  array<string, int>  $addOnSelections
+     * @param  list<string>  $seatIds
      * @return array{order: Order, passes: list<TicketPass>}
      */
     public function place(
@@ -99,16 +111,17 @@ final class PaidCheckout
         array $holdTokens,
         string $dataDescriptor,
         string $dataValue,
+        ?string $discountCode = null,
+        array $addOnSelections = [],
+        array $seatIds = [],
     ): array {
         $this->assertContext($event);
-        $this->assertReady();
-        $this->assertOpaque($dataDescriptor, $dataValue);
 
         if ($lines === []) {
             throw new CheckoutRejected('Choose at least one ticket.');
         }
 
-        $order = DB::transaction(function () use ($event, $lines, $answers, $guestName, $guestEmail, $buyerUserId, $holdTokens): Order {
+        $order = DB::transaction(function () use ($event, $lines, $answers, $guestName, $guestEmail, $buyerUserId, $holdTokens, $dataDescriptor, $dataValue, $discountCode, $addOnSelections, $seatIds): Order {
             $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->first();
 
             if (! $lockedEvent instanceof Event) {
@@ -119,9 +132,24 @@ final class PaidCheckout
             $answerRows = $this->cart->prepareAnswers($lockedEvent, $answers);
             $reservations = $this->cart->holdsFor($prepared, $holdTokens);
             $subtotal = $this->cart->subtotal($prepared);
+            $typeIds = [];
 
-            if ($subtotal < 1) {
+            foreach ($prepared as $item) {
+                $typeIds[] = $item['type']->id;
+            }
+
+            $addOn = $this->addOns->take($lockedEvent, $addOnSelections);
+            $discount = $this->discounts->redeem($lockedEvent, $subtotal, $typeIds, $discountCode);
+            $fee = $this->fee($lockedEvent->organization_id, $subtotal, $discount, $addOn['cents']);
+            $charge = $subtotal - $discount + $addOn['cents'] + $fee;
+
+            if ($subtotal < 1 && $addOn['cents'] < 1) {
                 throw new CheckoutRejected('Paid checkout requires a ticket price.');
+            }
+
+            if ($charge > 0) {
+                $this->assertReady();
+                $this->assertOpaque($dataDescriptor, $dataValue);
             }
 
             foreach ($reservations as $reservation) {
@@ -137,7 +165,6 @@ final class PaidCheckout
                 }
             }
 
-            $fee = $this->fee($lockedEvent->organization_id, $subtotal);
             $order = Order::query()->create([
                 'organization_id' => $lockedEvent->organization_id,
                 'buyer_user_id' => $buyerUserId,
@@ -145,15 +172,17 @@ final class PaidCheckout
                 'guest_email' => strtolower($guestEmail),
                 'status' => OrderStatus::Pending,
                 'payment_status' => PaymentStatus::Pending,
-                'provider' => 'authorize_net',
+                'provider' => $charge > 0 ? 'authorize_net' : null,
                 'channel' => 'online',
                 'currency' => 'USD',
                 'ticket_subtotal_cents' => $subtotal,
-                'discount_cents' => 0,
+                'discount_cents' => $discount,
+                'discount_code' => $discount > 0 ? strtoupper(trim((string) $discountCode)) : null,
                 'fee_cents' => $fee,
-                'total_cents' => $subtotal + $fee,
+                'total_cents' => $charge,
                 'reference' => $this->cart->reference(),
             ]);
+            $attendeeIds = [];
 
             foreach ($prepared as $item) {
                 $type = $item['type'];
@@ -179,7 +208,7 @@ final class PaidCheckout
                 ]);
 
                 foreach ($item['attendees'] as $person) {
-                    Attendee::query()->create([
+                    $attendee = Attendee::query()->create([
                         'organization_id' => $lockedEvent->organization_id,
                         'order_id' => $order->id,
                         'order_line_id' => $line->id,
@@ -188,8 +217,12 @@ final class PaidCheckout
                         'name' => $person['name'],
                         'email' => $person['email'],
                     ]);
+                    $attendeeIds[] = $attendee->id;
                 }
             }
+
+            $this->addOns->snapshot($order, $addOn['rows']);
+            $this->seats->claim($lockedEvent, $seatIds, $order->id, $attendeeIds, $charge === 0);
 
             foreach ($answerRows as $row) {
                 $order->answers()->create([
@@ -205,6 +238,12 @@ final class PaidCheckout
 
             return $order;
         });
+
+        if ($order->total_cents === 0) {
+            $settled = $this->settlement->completeWithoutCharge($order);
+
+            return ['order' => $settled['order'], 'passes' => $settled['passes']];
+        }
 
         try {
             $result = $this->gateway->charge(new ChargeInstruction(
@@ -239,11 +278,11 @@ final class PaidCheckout
         throw new CheckoutRejected('The processor has not approved this payment. Tickets stay unissued.', 409);
     }
 
-    private function fee(string $organizationId, int $subtotal): int
+    private function fee(string $organizationId, int $subtotal, int $discount = 0, int $addOnCents = 0): int
     {
         $rule = $this->rules->effective($organizationId, now());
 
-        return $this->calculator->quote($rule->toData(), new FeeBasis($subtotal))->feeCents;
+        return $this->calculator->quote($rule->toData(), new FeeBasis($subtotal, $discount, 0, 0, $addOnCents, 0))->feeCents;
     }
 
     private function assertReady(): void

@@ -41,6 +41,7 @@ final class PassFactory
             'attendee_id' => $attendee->id,
             'event_id' => $event->id,
             'order_id' => $attendee->order_id,
+            'seat_id' => $attendee->seat_id,
             'token_hash' => hash('sha256', $token),
             'status' => IssuedTicketStatus::Issued,
             'issued_at' => now(),

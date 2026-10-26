@@ -7,6 +7,8 @@ Phase 3 adds Authorize.net sandbox checkout, refunds, and fee remittance. These 
 - The booking fee is invoiced on demand. A weekly or monthly remittance schedule is not built.
 - `collected` is not posted. Authorize.net does not split the booking fee out of the charge.
 - Door scanning uses the browser BarcodeDetector. Browsers without it use the typed ticket code. A bundled QR decoder is not shipped.
+- Reserved seating has no visual designer. Organizers edit sections, rows, and seats. Buyers use a labeled list. Accessible seats say "(accessible)" in the label.
+- A public seat hold expires on the reservation schedule. A seat attached to a pending card order stays held until that order is approved or declined.
 - Box office cash and card are records of money taken at the door. They are not sent to Authorize.net. Comps are $0. The booking fee is not assessed on those orders (decision D10).
 - Ticket delivery is an SVG QR code and a one-page PDF drawn from the QR matrix. PNG QR codes are not generated, because the app does not require GD.
 - The raw ticket token is only in the email attachments. The database stores its SHA-256. A failed send can be replaced from the order; the old token is voided.

@@ -7,6 +7,9 @@
     @if (!empty($checkoutError))
         <p class="alert" role="alert">{{ $checkoutError }}</p>
     @endif
+    @if (!empty($status))
+        <p class="status" role="status">{{ $status }}</p>
+    @endif
     @isset($holdToken)
         <p class="status" role="status">Reservation code <strong>{{ $holdToken }}</strong>@isset($holdExpires) expires {{ $holdExpires->timezone($event->timezone)->format('M j, g:i A T') }}@endisset. Enter it when you register. It is shown only here.</p>
     @endisset
@@ -100,6 +103,37 @@
                     @endfor
                 </fieldset>
             @endforeach
+            <label>Discount code
+                <input name="discount_code" value="{{ old('discount_code') }}" autocomplete="off">
+            </label>
+            @foreach ($event->addOns as $addOn)
+                <label>{{ $addOn->name }} · ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($addOn->price_cents) }} · {{ $addOn->quantity_total - $addOn->quantity_sold }} left
+                    <input type="number" name="add_ons[{{ $addOn->id }}]" min="0" max="{{ $addOn->quantity_total }}" value="0">
+                </label>
+            @endforeach
+            @if ($event->seatingPlan)
+                <fieldset>
+                    <legend>Seats</legend>
+                    <p>Choose one seat for each ticket. Accessible seats include the word accessible in the label.</p>
+                    @foreach ($event->seatingPlan->sections as $section)
+                        @foreach ($section->rows as $row)
+                            @foreach ($row->seats as $seat)
+                                <label>
+                                    <input type="checkbox" name="seats[]" value="{{ $seat->id }}" @disabled($seat->status === 'sold')>
+                                    {{ $section->name }}, row {{ $row->label }}, seat {{ $seat->label }}
+                                    @if ($seat->accessible)
+                                        (accessible)
+                                    @endif
+                                    · {{ $section->price_zone }}
+                                    @if ($seat->status !== 'available')
+                                        · {{ $seat->status }}
+                                    @endif
+                                </label>
+                            @endforeach
+                        @endforeach
+                    @endforeach
+                </fieldset>
+            @endif
             @foreach ($event->questions as $question)
                 <label>{{ $question->label }}@if ($question->required) (required)@endif
                     @if ($question->field_type->value === 'textarea')
@@ -122,6 +156,12 @@
                 <h2>Order total</h2>
                 <ul>
                     <li>Tickets ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['ticket_subtotal_cents']) }}</li>
+                    @if (($quote['discount_cents'] ?? 0) > 0)
+                        <li>Discount ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['discount_cents']) }}</li>
+                    @endif
+                    @if (($quote['add_on_cents'] ?? 0) > 0)
+                        <li>Add-ons ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['add_on_cents']) }}</li>
+                    @endif
                     <li>{{ config('payments.fee_label') }} ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['fee_cents']) }}</li>
                     <li>Total ${{ \App\Domain\Fees\MoneyFormat::centsToDollars($quote['total_cents']) }}</li>
                 </ul>
@@ -179,4 +219,15 @@
             <script src="{{ asset('js/accept-checkout.js') }}"></script>
         @endif
     @endif
+    <h2>Waitlist</h2>
+    <form method="post" action="{{ route('checkout.waitlist', $event->slug) }}" class="stack">
+        @csrf
+        <label>Name
+            <input name="name" required autocomplete="name">
+        </label>
+        <label>Email
+            <input type="email" name="email" required autocomplete="email">
+        </label>
+        <button class="button button-quiet" type="submit">Join the waitlist</button>
+    </form>
 @endsection

@@ -21,6 +21,7 @@ class EventSession extends Model
         'organization_id',
         'event_id',
         'name',
+        'entry_mode',
         'starts_at',
         'ends_at',
         'capacity',

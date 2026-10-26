@@ -33,12 +33,17 @@ final class FreeCheckout
         private readonly AuditLogger $audit,
         private readonly OrganizationManager $organizations,
         private readonly CheckoutCart $cart,
+        private readonly DiscountBook $discounts,
+        private readonly AddOnBook $addOns,
+        private readonly SeatBook $seats,
     ) {}
 
     /**
      * @param  list<array{ticket_type_id: string, quantity: int, attendees: list<array{name: string, email: string}>}>  $lines
      * @param  array<string, string>  $answers
      * @param  list<string>  $holdTokens
+     * @param  array<string, int>  $addOnSelections
+     * @param  list<string>  $seatIds
      * @return array{order: Order, passes: list<TicketPass>}
      */
     public function place(
@@ -49,6 +54,9 @@ final class FreeCheckout
         string $guestEmail,
         ?string $buyerUserId,
         array $holdTokens = [],
+        ?string $discountCode = null,
+        array $addOnSelections = [],
+        array $seatIds = [],
     ): array {
         $this->assertContext($event);
 
@@ -59,7 +67,7 @@ final class FreeCheckout
         /** @var list<TicketPass> $issued */
         $issued = [];
 
-        $order = DB::transaction(function () use ($event, $lines, $answers, $guestName, $guestEmail, $buyerUserId, $holdTokens, &$issued): Order {
+        $order = DB::transaction(function () use ($event, $lines, $answers, $guestName, $guestEmail, $buyerUserId, $holdTokens, $discountCode, $addOnSelections, $seatIds, &$issued): Order {
             $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->first();
 
             if (! $lockedEvent instanceof Event) {
@@ -78,6 +86,14 @@ final class FreeCheckout
             }
 
             $subtotal = $this->cart->subtotal($prepared);
+            $typeIds = [];
+
+            foreach ($prepared as $item) {
+                $typeIds[] = $item['type']->id;
+            }
+
+            $addOn = $this->addOns->take($lockedEvent, $addOnSelections);
+            $discount = $this->discounts->redeem($lockedEvent, $subtotal, $typeIds, $discountCode);
 
             $order = Order::query()->create([
                 'organization_id' => $lockedEvent->organization_id,
@@ -88,12 +104,14 @@ final class FreeCheckout
                 'channel' => 'online',
                 'currency' => 'USD',
                 'ticket_subtotal_cents' => $subtotal,
-                'discount_cents' => 0,
+                'discount_cents' => $discount,
+                'discount_code' => $discount > 0 ? strtoupper(trim((string) $discountCode)) : null,
                 'fee_cents' => 0,
-                'total_cents' => $subtotal,
+                'total_cents' => $subtotal - $discount + $addOn['cents'],
                 'reference' => $this->cart->reference(),
                 'completed_at' => now(),
             ]);
+            $attendeeIds = [];
 
             foreach ($prepared as $item) {
                 $type = $item['type'];
@@ -129,8 +147,12 @@ final class FreeCheckout
                         'email' => strtolower($person['email']),
                     ]);
                     $issued[] = $this->passes->issue($attendee, $lockedEvent, $order->reference);
+                    $attendeeIds[] = $attendee->id;
                 }
             }
+
+            $this->addOns->snapshot($order, $addOn['rows']);
+            $this->seats->claim($lockedEvent, $seatIds, $order->id, $attendeeIds);
 
             foreach ($answerRows as $row) {
                 $order->answers()->create([
@@ -147,18 +169,19 @@ final class FreeCheckout
             $snapshot = $this->fees->record(
                 $lockedEvent->organization_id,
                 $order->id,
-                new FeeBasis($subtotal),
+                new FeeBasis($subtotal, $discount, 0, 0, $addOn['cents'], 0),
                 now(),
             );
+            $total = $subtotal - $discount + $addOn['cents'] + $snapshot->fee_cents;
 
             $order->forceFill([
                 'fee_cents' => $snapshot->fee_cents,
-                'total_cents' => $subtotal + $snapshot->fee_cents,
+                'total_cents' => $total,
             ])->save();
 
             $this->audit->write('order.completed', $lockedEvent->organization_id, $order, [
                 'reference' => $order->reference,
-                'total_cents' => $subtotal + $snapshot->fee_cents,
+                'total_cents' => $total,
                 'tickets' => count($issued),
             ]);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Organization;
 
+use App\Domain\Catalog\AdvancedReport;
 use App\Domain\Catalog\BasicReport;
 use App\Domain\Fees\FinancialReport;
 use App\Domain\Fees\IdempotencyConflict;
@@ -18,6 +19,7 @@ final class ReportController extends Controller
 {
     public function __construct(
         private readonly BasicReport $report,
+        private readonly AdvancedReport $advanced,
         private readonly FinancialReport $financial,
         private readonly RemittanceService $remittance,
     ) {}
@@ -77,6 +79,7 @@ final class ReportController extends Controller
         return [
             'title' => 'Reports',
             'summary' => $this->report->summarize(),
+            'advanced' => $this->advanced->summarize(),
             'events' => $this->report->events(),
             'ledger' => $this->financial->totals(),
             'invoices' => RemittanceInvoice::query()->latest()->limit(50)->get(),

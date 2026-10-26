@@ -16,7 +16,7 @@ Shipped on this branch: mobile check-in with BarcodeDetector or a typed code, ma
 
 ## Phase 5 — Advanced catalog
 
-Recurring and timed-entry sessions, reserved seating, discounts, add-ons, waitlists, ticket transfers that invalidate the old token, and advanced reports. A visual seat designer can be deferred if the seat data and an accessible picker ship first.
+Shipped on this branch: daily and weekly timed-entry sessions, reserved seats (plan, section, row, seat, accessible seats, price zones, expiring holds), an accessible seat list, discounts (percent and fixed, limits, expiry, ticket eligibility), add-ons excluded from the booking fee, waitlist join and offer, ticket transfers that void the old token, and advanced report totals. A visual seat designer is not included. Organizers edit sections, rows, and seats. Buyers pick from a labeled list.
 
 ## Phase 6 — Growth and platform admin
 

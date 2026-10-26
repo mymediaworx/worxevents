@@ -22,6 +22,7 @@ class Ticket extends Model
         'attendee_id',
         'event_id',
         'order_id',
+        'seat_id',
         'token_hash',
         'status',
         'issued_at',
