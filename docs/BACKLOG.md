@@ -1,6 +1,6 @@
 # Backlog
 
-Phase 1 is this repository's current scope. The order below is the recommended build order. Fee and refund policy items in [DECISIONS.md](DECISIONS.md) can change the details.
+Phase 1 is this repository's current scope. The order below is the recommended build order. Michael approved the fee and refund rows in [DECISIONS.md](DECISIONS.md) on 2026-10-26. Tax treatment, buyer-facing wording, and merchant of record are still open.
 
 ## Phase 2 — Catalog and the public event
 

@@ -13,7 +13,7 @@ Patterns follow [ReserveWorx](https://github.com/mymediaworx/reserveworx), which
 ## Docs
 
 - [Architecture and Phase 1 plan](docs/ARCHITECTURE.md)
-- [Decisions that need approval](docs/DECISIONS.md)
+- [Decisions](docs/DECISIONS.md)
 - [Role and permission matrix](docs/RBAC.md)
 - [Booking fees](docs/FEES.md)
 - [Stripe and Authorize.net](docs/PAYMENTS.md)

@@ -145,7 +145,7 @@ CI is `.github/workflows/ci.yml`: Pint, PHPStan level 5, `composer audit`, the r
 
 - A hostname typo in `config/organizations.php` marks that host verified. Review the file before syncing.
 - The user table is global. Isolation depends on membership checks and scopes, which the tests cover, not on separate databases.
-- Fee policy is implemented as the launch formula and is not signed off. See [DECISIONS.md](DECISIONS.md).
+- Fee and refund policy in [DECISIONS.md](DECISIONS.md) was approved by Michael on 2026-10-26. Tax treatment, buyer-facing wording, and merchant of record remain external reviews.
 - Stripe and Authorize.net adapters cannot charge. Turning them on without webhook confirmation would mark money that did not move.
 - SiteGround limits for this domain are unverified. A cron that never runs leaves queued work sitting in `background_jobs`.
 - Inode pressure returns if a deploy copies `node_modules` or keeps more than two release trees. The script removes `node_modules` from a release and deletes older trees.

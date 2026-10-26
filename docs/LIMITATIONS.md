@@ -7,7 +7,7 @@ Phase 1 is the foundation. These are absent on purpose.
 - No webhook endpoint and no route that marks a refund complete.
 - The fee ledger posts `assessed` only. `collected`, `owed`, and `remitted` can be written by `postLedger` and are not wired to money movement.
 - Fee rules created in the platform UI are platform-wide (`organization_id` null). The resolver can prefer an organization rule, and there is no screen to create one.
-- USD only. One fee label. The commercial terms are not signed off ([DECISIONS.md](DECISIONS.md)).
+- USD only. One fee label. Michael approved the fee and refund terms on 2026-10-26 ([DECISIONS.md](DECISIONS.md)). Tax treatment, wording, and merchant of record are still open external reviews.
 - Cash and comped box-office orders do not assess a fee.
 - Users are global. Isolation is the hostname plus membership, not a database per organization.
 - Organization sync trusts the hostname in config and does not query DNS.

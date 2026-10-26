@@ -35,7 +35,7 @@ Seeded as a platform rule (`organization_id` null), effective 2026-01-01 00:00:0
 
 An organization-specific rule wins over the platform rule when `effective_at` is at or before the order time. Ties break by latest `effective_at`, then highest id. Creating a rule inserts a new row. Old rows stay. Existing snapshots are not rewritten.
 
-The minimum and maximum are commercial choices waiting on [DECISIONS.md](DECISIONS.md). The code and the tests use this schedule so the math is fixed.
+Michael approved this schedule on 2026-10-26 ([D7](DECISIONS.md)). The code and the tests use it. Tax treatment of the fee is still an open accounting review.
 
 ## Examples the tests lock
 
