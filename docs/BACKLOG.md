@@ -12,7 +12,7 @@ Shipped on this branch: Accept.js sandbox checkout, encrypted credentials, conne
 
 ## Phase 4 — Event day
 
-Mobile check-in, camera QR scanning, manual lookup, atomic check-in, duplicate and wrong-event outcomes, reversal with permission, box office walk-up, comps, cash and card records, shared inventory, and attendee exports.
+Shipped on this branch: mobile check-in with BarcodeDetector or a typed code, manual lookup, locked check-in, duplicate / wrong-event / refunded / canceled results, reversal for `events.manage`, box office walk-up with cash, card records, and comps, shared inventory, and an attendee CSV. A bundled camera decoder is not included.
 
 ## Phase 5 — Advanced catalog
 

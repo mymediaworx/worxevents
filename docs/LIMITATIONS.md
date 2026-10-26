@@ -6,7 +6,8 @@ Phase 3 adds Authorize.net sandbox checkout, refunds, and fee remittance. These 
 - Authorize.net live mode is off unless `AUTHORIZE_NET_LIVE` is true. Tests use a fake client and `Http::fake`. They do not create real charges.
 - The booking fee is invoiced on demand. A weekly or monthly remittance schedule is not built.
 - `collected` is not posted. Authorize.net does not split the booking fee out of the charge.
-- Check-in and box office routes are still shells. Door scanning and walk-up sales are later.
+- Door scanning uses the browser BarcodeDetector. Browsers without it use the typed ticket code. A bundled QR decoder is not shipped.
+- Box office cash and card are records of money taken at the door. They are not sent to Authorize.net. Comps are $0. The booking fee is not assessed on those orders (decision D10).
 - Ticket delivery is an SVG QR code and a one-page PDF drawn from the QR matrix. PNG QR codes are not generated, because the app does not require GD.
 - The raw ticket token is only in the email attachments. The database stores its SHA-256. A failed send can be replaced from the order; the old token is voided.
 - Stripe still has no webhook and no route that marks a Stripe refund complete. Authorize.net webhooks are signature-checked, and the confirm route looks up the refund before it completes.

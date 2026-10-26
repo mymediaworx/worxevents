@@ -13,8 +13,10 @@ Routes are server-rendered. A shell page still checks the permission. Livewire i
 | `GET /invitations/{token}` | Public | Invitation. Accept requires auth and a verified email |
 | `GET /dashboard` | Organization member, verified | Home for that organization |
 | `GET /events` | `events.view` | Event list. Create, edit, publish, sessions, ticket types, and questions require `events.manage` |
-| `GET /box-office` | `tickets.sell` | Box office shell |
-| `GET /check-in` | `checkin.scan` | Check-in shell |
+| `GET/POST /box-office` | `tickets.sell` | Walk-up cash, card record, or comp. Shared inventory |
+| `GET /check-in` | `checkin.scan` | Door scan, camera detector, and lookup |
+| `POST /check-in/tickets/{ticket}/reverse` | `events.manage` | Undo a check-in |
+| `GET /events/{event}/attendees.csv` | `events.view` | Attendee export, 100 rows, no ticket tokens |
 | `GET /tickets` | `orders.view_own` | The signed-in buyer's registrations on this organization |
 | `GET /team`, `POST /team/invitations` | View, then manage | Roster and invitations |
 | `GET /finance` | `finance.view` | Refund list |

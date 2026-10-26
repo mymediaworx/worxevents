@@ -25,6 +25,8 @@ class Ticket extends Model
         'token_hash',
         'status',
         'issued_at',
+        'checked_in_at',
+        'checked_in_by_user_id',
     ];
 
     /**
@@ -35,6 +37,7 @@ class Ticket extends Model
         return [
             'status' => IssuedTicketStatus::class,
             'issued_at' => 'datetime',
+            'checked_in_at' => 'datetime',
         ];
     }
 
