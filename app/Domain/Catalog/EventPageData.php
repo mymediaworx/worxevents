@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domain\Catalog;
 
+use App\Domain\Payments\AuthorizeNetGateway;
 use App\Enums\EventStatus;
 use App\Enums\TicketVisibility;
 use App\Models\Event;
 use App\Models\OrganizationDomain;
+use App\Models\PaymentSetting;
 use App\Models\TicketType;
 use App\Support\BrandColor;
 
@@ -16,6 +18,7 @@ final class EventPageData
     public function __construct(
         private readonly PublishedEvents $urls,
         private readonly EventSchema $schema,
+        private readonly AuthorizeNetGateway $gateway,
     ) {}
 
     /**
@@ -27,8 +30,12 @@ final class EventPageData
         $url = $this->urls->url($event);
         $image = $this->imageUrl($event);
         $registerable = $event->ticketTypes->filter(function (TicketType $type): bool {
-            return $type->visibility !== TicketVisibility::Hidden && $type->price_cents === 0;
+            return $type->visibility !== TicketVisibility::Hidden;
         })->values();
+        $hasPaidTickets = $registerable->contains(fn (TicketType $type): bool => $type->price_cents > 0);
+        $setting = $this->gateway->isReady()
+            ? PaymentSetting::query()->where('organization_id', $event->organization_id)->first()
+            : null;
 
         return [
             'event' => $event,
@@ -44,7 +51,14 @@ final class EventPageData
             'canRegister' => $event->status === EventStatus::Published && $registerable->contains(
                 fn (TicketType $type): bool => $type->remaining() >= $type->min_per_order,
             ),
-            'saleMessage' => $this->saleMessage($event),
+            'hasPaidTickets' => $hasPaidTickets,
+            'paymentsReady' => $setting instanceof PaymentSetting,
+            'acceptApiLogin' => $setting instanceof PaymentSetting ? (string) $setting->api_login_id : null,
+            'acceptClientKey' => $setting instanceof PaymentSetting ? (string) $setting->public_client_key : null,
+            'acceptScript' => $setting instanceof PaymentSetting && $setting->environment === 'sandbox'
+                ? 'https://jstest.authorize.net/v1/Accept.js'
+                : null,
+            'saleMessage' => $this->saleMessage($event, $hasPaidTickets),
             'checkoutError' => $checkoutError,
             'accent' => BrandColor::sanitize($event->organization?->brand_accent),
             'publicUrl' => $url,
@@ -70,7 +84,7 @@ final class EventPageData
         return url('/media/events/'.$event->id);
     }
 
-    private function saleMessage(Event $event): string
+    private function saleMessage(Event $event, bool $hasPaidTickets): string
     {
         return match ($event->status) {
             EventStatus::Paused => 'Registration is paused.',
@@ -78,7 +92,9 @@ final class EventPageData
             EventStatus::Canceled => 'This event was canceled.',
             EventStatus::Completed => 'This event has ended.',
             EventStatus::Draft => 'This event is not published.',
-            EventStatus::Published => 'Registration is open for free tickets.',
+            EventStatus::Published => $hasPaidTickets
+                ? 'Card payments use Authorize.net. The booking fee is calculated on the server.'
+                : 'Registration is open for free tickets.',
         };
     }
 }

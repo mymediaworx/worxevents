@@ -8,6 +8,7 @@ use App\Domain\Catalog\CheckoutRejected;
 use App\Domain\Catalog\EventPageData;
 use App\Domain\Catalog\FreeCheckout;
 use App\Domain\Catalog\InventoryBook;
+use App\Domain\Catalog\PaidCheckout;
 use App\Domain\Tickets\TicketMailer;
 use App\Enums\EventStatus;
 use App\Enums\TicketVisibility;
@@ -22,6 +23,7 @@ final class CheckoutController extends Controller
 {
     public function __construct(
         private readonly FreeCheckout $checkout,
+        private readonly PaidCheckout $paid,
         private readonly InventoryBook $inventory,
         private readonly EventPageData $pages,
         private readonly TicketMailer $mailer,
@@ -55,9 +57,32 @@ final class CheckoutController extends Controller
         return response()->view('public.event', $data);
     }
 
+    public function quote(Request $request, string $slug): Response
+    {
+        $event = $this->event($request, $slug);
+
+        try {
+            $quote = $this->paid->preview($event, $this->lines($request));
+        } catch (CheckoutRejected $exception) {
+            return $this->page($event, $exception->getMessage(), $exception->status);
+        }
+
+        $data = $this->pages->for($event);
+        $data['quote'] = $quote;
+        $data['robots'] = 'noindex, nofollow';
+
+        return response()->view('public.event', $data);
+    }
+
     public function store(Request $request, string $slug): Response
     {
         $event = $this->event($request, $slug);
+        $rejected = $this->rejectCardFields($request, $event);
+
+        if ($rejected instanceof Response) {
+            return $rejected;
+        }
+
         $guestName = trim((string) $request->input('guest_name'));
         $guestEmail = trim((string) $request->input('guest_email'));
 
@@ -66,21 +91,34 @@ final class CheckoutController extends Controller
         }
 
         $buyer = $request->user();
+        $lines = $this->lines($request);
         $tokens = array_values(array_filter(array_map(
             trim(...),
             explode(',', (string) $request->input('hold_token', '')),
         ), fn (string $token): bool => $token !== ''));
 
         try {
-            $result = $this->checkout->place(
-                $event,
-                $this->lines($request),
-                $this->answers($request),
-                $guestName,
-                $guestEmail,
-                $buyer instanceof User ? $buyer->id : null,
-                $tokens,
-            );
+            $result = $this->containsPaid($event, $lines)
+                ? $this->paid->place(
+                    $event,
+                    $lines,
+                    $this->answers($request),
+                    $guestName,
+                    $guestEmail,
+                    $buyer instanceof User ? $buyer->id : null,
+                    $tokens,
+                    trim((string) $request->input('data_descriptor')),
+                    trim((string) $request->input('data_value')),
+                )
+                : $this->checkout->place(
+                    $event,
+                    $lines,
+                    $this->answers($request),
+                    $guestName,
+                    $guestEmail,
+                    $buyer instanceof User ? $buyer->id : null,
+                    $tokens,
+                );
         } catch (CheckoutRejected $exception) {
             return $this->page($event, $exception->getMessage(), $exception->status);
         }
@@ -115,6 +153,36 @@ final class CheckoutController extends Controller
         $data = $this->pages->for($event, $message);
 
         return response()->view('public.event', $data, $status);
+    }
+
+    private function rejectCardFields(Request $request, Event $event): ?Response
+    {
+        foreach (['card_number', 'cardNumber', 'cvv', 'cvc', 'expiration', 'expiry', 'pan'] as $field) {
+            if ($request->exists($field)) {
+                return $this->page($event, 'Card data is never accepted. Submit an Accept.js payment nonce.', 422);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array{ticket_type_id: string, quantity: int, attendees: list<array{name: string, email: string}>}>  $lines
+     */
+    private function containsPaid(Event $event, array $lines): bool
+    {
+        foreach ($lines as $line) {
+            $type = TicketType::query()
+                ->whereKey($line['ticket_type_id'])
+                ->where('event_id', $event->id)
+                ->first();
+
+            if ($type instanceof TicketType && $type->price_cents > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

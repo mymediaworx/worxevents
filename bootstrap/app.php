@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(prepend: [
             ResolveHost::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/authorize-net/*',
+        ]);
         $middleware->alias([
             'organization.member' => EnsureOrganizationMember::class,
             'platform.member' => EnsurePlatformMember::class,

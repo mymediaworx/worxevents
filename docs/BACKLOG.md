@@ -8,7 +8,7 @@ Shipped on this branch: organizer setup, venues, events, sessions, categories, t
 
 ## Phase 3 — Authorize.net paid ticketing
 
-Accept.js on the organizer's merchant account. Credentials encrypted at rest. Sandbox and test mode. Webhook signature checks, idempotent notifications, transaction lookup, and refunds including partial refunds. Paid checkout computes totals on the server, shows the booking-fee line, and issues tickets only after the processor confirms the charge. The fee ledger gains `owed` and `remitted` through Authorize.net invoices. Live mode stays off until it is configured. Stripe remains the disabled stub. Tests mock the processor and do not create real charges.
+Shipped on this branch: Accept.js sandbox checkout, encrypted credentials, connection check, signed idempotent webhooks, transaction lookup, partial and full refunds, server-side totals with a booking-fee line, tickets only after approval, `owed` and `remitted` through an on-demand invoice, and a financial CSV. Live mode stays off. Stripe remains the disabled stub. Tests mock the processor.
 
 ## Phase 4 — Event day
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,10 @@ class Order extends Model
         'guest_name',
         'guest_email',
         'status',
+        'payment_status',
+        'provider',
+        'provider_reference',
+        'card_last_four',
         'channel',
         'currency',
         'ticket_subtotal_cents',
@@ -42,6 +47,7 @@ class Order extends Model
     {
         return [
             'status' => OrderStatus::class,
+            'payment_status' => PaymentStatus::class,
             'ticket_subtotal_cents' => 'integer',
             'discount_cents' => 'integer',
             'fee_cents' => 'integer',

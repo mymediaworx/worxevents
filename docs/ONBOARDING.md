@@ -64,6 +64,8 @@ Buyers register on the organization host. That creates a `buyer` membership for 
 
 The owner can also finish `/setup` after sign-in: legal name, support email, description, logo, accent color, USD currency, and time zone. Each step saves. Finish marks setup complete and, if the organization is still `onboarding`, sets it `active`. Currency other than USD is rejected.
 
+Paid tickets need `/payments`. The owner enters Authorize.net sandbox credentials. The app validates the connection before it stores them, encrypts the API login ID, transaction key, and signature key, and does not show those secrets again. Live mode stays off until `AUTHORIZE_NET_LIVE` is true on the server. Point the merchant webhook at `https://{hostname}/webhooks/authorize-net/{organization-id}` and use the same signature key.
+
 ## Mail
 
 Until cron is installed, reset, invitation, and ticket mail is sent during the request. `MAIL_MAILER=log` writes it to the log locally. Production needs the host's SMTP settings in `shared/.env`. See [DEPLOY.md](DEPLOY.md).

@@ -8,5 +8,5 @@
             <p><a href="{{ route('setup') }}">Finish organization setup</a>. Details, logo, currency, and time zone can be saved as a draft.</p>
         @endif
     @endcan
-    <p>Free registration is open. Paid checkout waits until a card processor is connected.</p>
+    <p>Free registration is open. Paid checkout uses Authorize.net after sandbox credentials are saved under Payments. Stripe is not connected.</p>
 @endsection

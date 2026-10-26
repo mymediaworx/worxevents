@@ -67,6 +67,62 @@ final class InventoryBook
         });
     }
 
+    public function claim(InventoryReservation $reservation, string $orderId): void
+    {
+        DB::transaction(function () use ($reservation, $orderId): void {
+            $locked = $this->lockReservation($reservation->id);
+            $row = $locked['reservation'];
+
+            if ($row->released_at !== null || $row->consumed_at !== null) {
+                throw new CheckoutRejected('That reservation is no longer active.', 409);
+            }
+
+            if ($row->order_id !== null && $row->order_id !== $orderId) {
+                throw new CheckoutRejected('That reservation is already attached to an order.', 409);
+            }
+
+            $expires = $row->expires_at->lt(now()->addDays(2)) ? now()->addDays(2) : $row->expires_at;
+            $row->forceFill([
+                'order_id' => $orderId,
+                'expires_at' => $expires,
+            ])->save();
+        });
+    }
+
+    public function release(InventoryReservation $reservation): void
+    {
+        DB::transaction(function () use ($reservation): void {
+            $locked = $this->lockReservation($reservation->id);
+            $row = $locked['reservation'];
+
+            if ($row->released_at !== null || $row->consumed_at !== null) {
+                return;
+            }
+
+            $this->adjust($locked['event'], $locked['session'], $locked['type'], -$row->quantity, 0);
+            $row->forceFill(['released_at' => now()])->save();
+            $this->refreshSaleStatus($locked['event']);
+        });
+    }
+
+    public function releaseForOrder(string $orderId): void
+    {
+        $ids = InventoryReservation::query()
+            ->where('order_id', $orderId)
+            ->whereNull('released_at')
+            ->whereNull('consumed_at')
+            ->orderBy('id')
+            ->pluck('id');
+
+        foreach ($ids as $id) {
+            $reservation = InventoryReservation::query()->whereKey((string) $id)->first();
+
+            if ($reservation instanceof InventoryReservation) {
+                $this->release($reservation);
+            }
+        }
+    }
+
     public function releaseExpired(): int
     {
         $ids = InventoryReservation::query()
