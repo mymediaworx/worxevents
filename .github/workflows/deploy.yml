@@ -180,8 +180,13 @@ jobs:
             base_prefix="$(printf 'WORXEVENTS_BASE=%q ' "$WORXEVENTS_BASE")"
           fi
           echo "Document root is \$WORXEVENTS_BASE/public_html. Default site directory is ~/www/app.worxevents.com. Set the Actions variable WORXEVENTS_BASE to override that directory." >> "$GITHUB_STEP_SUMMARY"
-          remote_env="${base_prefix}$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q APP_KEY=%q' \
-            "$action" "$RELEASE_SHA" "${DB_HOST:-localhost}" "${DB_PORT:-3306}" "${DB_DATABASE:-}" "${DB_USERNAME:-}" "${DB_PASSWORD:-}" "${APP_KEY:-}")"
+          # An empty APP_KEY must not be exported. It would hide the key already stored on the server.
+          app_key_prefix=""
+          if [[ -n "${APP_KEY:-}" ]]; then
+            app_key_prefix="$(printf 'APP_KEY=%q ' "$APP_KEY")"
+          fi
+          remote_env="${base_prefix}${app_key_prefix}$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q' \
+            "$action" "$RELEASE_SHA" "${DB_HOST:-localhost}" "${DB_PORT:-3306}" "${DB_DATABASE:-}" "${DB_USERNAME:-}" "${DB_PASSWORD:-}")"
           {
             echo
             echo '```'
