@@ -25,6 +25,9 @@ if [[ "$BASE" != /* ]]; then
   exit 1
 fi
 
+mkdir -p "$BASE"
+BASE="$(cd "$BASE" && pwd -P)"
+
 laravel="${BASE}/laravel"
 releases="${laravel}/releases"
 shared="${laravel}/shared"
@@ -53,8 +56,10 @@ release_realpath() {
 
 assert_under_releases() {
   local path="$1"
+  local root
+  root="$(readlink -f "$releases")"
   case "$path" in
-    "$releases"/*) ;;
+    "$root"/*) ;;
     *)
       echo "Refusing to remove a path outside releases." >&2
       exit 1

@@ -90,6 +90,11 @@ deploy 20261026d
 [[ "$(readlink -f "${base}/laravel/previous")" == "${base}/laravel/releases/20261026b" ]]
 [[ ! -d "${base}/laravel/releases/20261026c" ]]
 
+ln -s "$base" "${tmp}/via-link"
+WORXEVENTS_BASE="${tmp}/via-link" ACTION=deploy RELEASE=20261026e SOURCE="$src" bash "$script"
+[[ "$(readlink -f "${base}/laravel/current")" == "${base}/laravel/releases/20261026e" ]]
+[[ ! -d "${base}/laravel/releases/20261026b" ]]
+
 set +e
 WORXEVENTS_BASE="${tmp}/public_html/site" ACTION=deploy RELEASE=nope SOURCE="$src" bash "$script" >/dev/null 2>&1
 status=$?
