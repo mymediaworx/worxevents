@@ -26,7 +26,8 @@ Phase 3 adds Authorize.net sandbox checkout, refunds, and fee remittance. These 
 - Analytics does not load unless the visitor opts in and `WORXEVENTS_ANALYTICS_HOOK` is an https URL. The default is empty.
 - Announcements go only to addresses that checked the consent box and have not unsubscribed. The list is capped at 100 recipients per send.
 - Platform plans are labels. They do not charge a card.
-- A formal WCAG audit has not been run. Tokens and targets are aimed at WCAG 2.2 AA.
+- A formal WCAG audit has not been run. Tokens and targets are aimed at WCAG 2.2 AA. The phase 7 check covers the skip link, `lang`, named controls, the accessible-seat label, focus styles, and `prefers-reduced-motion`.
+- A penetration test has not been run. The phase 7 notes in [SECURITY.md](SECURITY.md) are a review of the code that is already in the tree.
 - SiteGround for this domain has not been measured ([HOSTING.md](HOSTING.md)).
 - CI is written for MySQL 8.4 and MariaDB 11.8. The machine that produced this phase ran PHPUnit on MySQL 8.0.46 only. Docker was not available here, so those two engines were not executed in this run.
 - Deploy reads SiteGround and database credentials from GitHub Actions secrets. Those values are not in the repo. The workflow does not call Stripe.

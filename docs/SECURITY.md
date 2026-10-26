@@ -20,6 +20,17 @@ Phase 1 controls that are in the code:
 - [x] `worxevents:hosting-check` and `worxevents:platform-admin` do not print passwords.
 - [x] Pagination cannot request more than 100 rows.
 
+Phase 7 review of the code in this tree. This is not a penetration test.
+
+- [x] Inventory reservation, seat hold, and door check-in take `lockForUpdate` inside a transaction. A second connection is expected to wait. See `tests/Feature/Readiness/ConcurrencyTest.php`.
+- [x] Issued ticket tokens are stored as SHA-256. Audit redaction includes keys named token.
+- [x] Checkout rejects posted card numbers. The transaction key and signature key use the encrypted cast. The platform payments page does not select those columns.
+- [x] The failed-jobs page selects `uuid`, `queue`, and `failed_at`. It does not select `payload` or `exception`.
+- [x] The analytics script is emitted only for an https hook and only after the consent cookie is set.
+- [x] Announcements go only to consented addresses that have not unsubscribed. The unsubscribe URL is a signed route.
+- [x] Promo QR markup comes from the QR library for an event URL this app builds. It is not request HTML.
+- [x] Sign-in failures record a kind, the message "Sign-in was rejected.", and a SHA-256 of the IP. They do not store the password.
+
 Still required outside the repository:
 
 - [ ] `APP_KEY`, database password, `MAIL_PASSWORD`, and future Stripe secrets only in `laravel/shared/.env`
