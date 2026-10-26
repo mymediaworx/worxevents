@@ -3,7 +3,7 @@
 ## Ship a release
 
 1. CI on `main` must pass (Pint, PHPStan, `composer audit`, and PHPUnit on MySQL 8.4 and MariaDB 11.8).
-2. The Deploy job starts from that successful run and waits for approval on the GitHub environment named `production`.
+2. The Deploy job starts from that successful run. There is no manual approval gate.
 3. The job builds `vendor` on the runner and runs `scripts/remote-activate.sh` over SSH. The document root is `$WORXEVENTS_BASE/public_html`. The default base is `~/www/app.worxevents.com`. Override it with the Actions variable `WORXEVENTS_BASE`. The base path must not contain `public_html`.
 4. The script writes `laravel/shared/.env` outside the document root when it is missing, takes a database backup, then migrates.
 

@@ -7,7 +7,7 @@ This report describes the tree on the phase 7 branch. It is not a statement that
 - Multi-tenant organizations, roles, audit log, and the booking-fee engine. Michael approved the fee and refund choices in [DECISIONS.md](DECISIONS.md) on 2026-10-26. D9 and D18 remain external reviews. D15, D16, and D17 stay open.
 - Free registration, paid Authorize.net sandbox checkout, refunds, fee invoices, check-in, box office, reserved seats without a visual designer, discounts, add-ons, waitlists, transfers, and the platform admin screens in [ADMIN.md](ADMIN.md).
 - Stripe is a disabled adapter. `stripe/stripe-php` is not installed. Authorize.net live mode is off unless `AUTHORIZE_NET_LIVE` is true.
-- CI is Pint, PHPStan level 5, `composer audit`, and PHPUnit on MySQL 8.4 and MariaDB 11.8. The deploy workflow runs only after CI succeeds on `main`, then waits for the `production` environment.
+- CI is Pint, PHPStan level 5, `composer audit`, and PHPUnit on MySQL 8.4 and MariaDB 11.8. The deploy workflow runs as soon as CI succeeds on a push to `main`. There is no manual approval gate.
 
 ## What was exercised here
 
@@ -19,14 +19,12 @@ Concurrency tests hold the inventory, seat, and check-in row locks and expect a 
 
 Michael, or whoever operates the host, still has to:
 
-1. Merge the phase branches. This work does not merge them.
-2. Confirm the GitHub `production` environment has the reviewers you want. The workflow's approval gate is that environment.
-3. Create the SiteGround site for `app.worxevents.com` if it does not exist. Set `WORXEVENTS_BASE` if the directory is not `~/www/app.worxevents.com`.
-4. Add `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` as Actions secrets if they are not already there. The documented SSH secrets are `SG_SSH_HOST`, `SG_SSH_USER`, `SG_SSH_PORT`, `SG_SSH_KEY`, and `SG_SSH_PASSPHRASE`.
-5. Schedule `php artisan schedule:run` every minute, force HTTPS, and set SMTP. Until SMTP is set, mail is logged.
-6. Run `worxevents:platform-admin` for the first platform user.
-7. Finish the legal and accounting reviews (D9, D18) before the public legal pages are treated as final. Those pages say they are not legal advice.
-8. Leave Stripe and Authorize.net live mode off until you choose to configure them.
+1. Create the SiteGround site for `app.worxevents.com` if it does not exist. Set `WORXEVENTS_BASE` if the directory is not `~/www/app.worxevents.com`.
+2. Add `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` as Actions secrets if they are not already there. The documented SSH secrets are `SG_SSH_HOST`, `SG_SSH_USER`, `SG_SSH_PORT`, `SG_SSH_KEY`, and `SG_SSH_PASSPHRASE`.
+3. Schedule `php artisan schedule:run` every minute, force HTTPS, and set SMTP. Until SMTP is set, mail is logged.
+4. Run `worxevents:platform-admin` for the first platform user.
+5. Finish the legal and accounting reviews (D9, D18) before the public legal pages are treated as final. Those pages say they are not legal advice.
+6. Leave Stripe and Authorize.net live mode off until you choose to configure them.
 
 ## Known limitations
 

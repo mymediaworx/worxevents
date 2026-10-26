@@ -30,7 +30,7 @@ The buyer did not check the consent box, or they used the unsubscribe link. The 
 
 ## Deploy did not start
 
-The deploy workflow is on the phase 1 branch. It runs after CI succeeds on `main`, then waits for the GitHub `production` environment. Nothing in this repository merges itself. Until a person merges to `main`, the site is not deployed.
+The deploy workflow runs after CI succeeds on a push to `main`. There is no manual approval gate. Until that push happens, the site is not deployed.
 
 ## Health is 503
 
