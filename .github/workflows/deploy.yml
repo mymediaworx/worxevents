@@ -1,0 +1,202 @@
+name: Deploy
+
+# Starts after CI finishes on a push to main. There is no manual
+# approval gate. The job still fails closed when CI did not pass.
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Deploy the current main commit, or roll back
+        type: choice
+        required: true
+        options:
+          - deploy
+          - rollback
+        default: deploy
+
+concurrency:
+  group: worxevents-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Require a successful CI push to main
+        env:
+          EVENT: ${{ github.event_name }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_URL: ${{ github.event.workflow_run.html_url }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            echo "Manual deploy of the main tip." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          tip="$(gh api "repos/${REPO}/commits/main" --jq .sha)"
+          if [[ "$CI_EVENT" != "push" || "$CI_CONCLUSION" != "success" ]]; then
+            echo "::error::CI ${CI_CONCLUSION} for ${CI_EVENT} on ${CI_SHA} (${CI_URL}). Nothing was deployed."
+            exit 1
+          fi
+          if [[ "$CI_SHA" != "$tip" ]]; then
+            echo "::error::${CI_SHA} is no longer the tip of main (${tip}). The newer commit deploys after its own CI."
+            exit 1
+          fi
+          {
+            echo "## Deploy"
+            echo
+            echo "- CI passed for \`${CI_SHA}\`"
+            echo "- ${CI_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Mask connection secrets
+        env:
+          SG_HOST: ${{ secrets.SG_SSH_HOST }}
+          SG_USER: ${{ secrets.SG_SSH_USER }}
+          SG_PORT: ${{ secrets.SG_SSH_PORT }}
+          SG_SSH_PASSPHRASE: ${{ secrets.SG_SSH_PASSPHRASE }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${SG_HOST}" ]; then echo "::add-mask::${SG_HOST}"; fi
+          if [ -n "${SG_USER}" ]; then echo "::add-mask::${SG_USER}"; fi
+          if [ -n "${SG_PORT}" ]; then echo "::add-mask::${SG_PORT}"; fi
+          if [ -n "${SG_SSH_PASSPHRASE}" ]; then echo "::add-mask::${SG_SSH_PASSPHRASE}"; fi
+          if [ -n "${DB_PASSWORD}" ]; then echo "::add-mask::${DB_PASSWORD}"; fi
+          if [ -n "${APP_KEY}" ]; then echo "::add-mask::${APP_KEY}"; fi
+
+      - name: Require SiteGround connection secrets
+        env:
+          SG_HOST: ${{ secrets.SG_SSH_HOST }}
+          SG_USER: ${{ secrets.SG_SSH_USER }}
+          SG_PORT: ${{ secrets.SG_SSH_PORT }}
+          SG_SSH_KEY: ${{ secrets.SG_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "${SG_HOST}" ]]; then echo "missing_secret=SG_SSH_HOST"; missing=1; fi
+          if [[ -z "${SG_USER}" ]]; then echo "missing_secret=SG_SSH_USER"; missing=1; fi
+          if [[ -z "${SG_PORT}" ]]; then echo "missing_secret=SG_SSH_PORT"; missing=1; fi
+          if [[ -z "${SG_SSH_KEY}" ]]; then echo "missing_secret=SG_SSH_KEY"; missing=1; fi
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Add the missing GitHub Actions secrets on mymediaworx/worxevents. Values stay out of the repository. The workflow cannot create the SiteGround site or the database password without them."
+            exit 1
+          fi
+
+      - uses: shivammathur/setup-php@v2
+        if: github.event_name == 'workflow_run' || inputs.action == 'deploy'
+        with:
+          php-version: "8.2"
+          coverage: none
+          tools: composer:v2
+
+      - name: Install production dependencies
+        if: github.event_name == 'workflow_run' || inputs.action == 'deploy'
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Pack one release archive
+        if: github.event_name == 'workflow_run' || inputs.action == 'deploy'
+        env:
+          RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Refusing to pack because the release id is not a commit sha." >&2
+            exit 1
+          fi
+          tar -czf "/tmp/worxevents-${RELEASE_SHA}.tar.gz" \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude 'node_modules' \
+            --exclude 'tests' \
+            --exclude 'storage/logs' \
+            --exclude 'storage/framework/cache/data' \
+            --exclude 'storage/framework/sessions' \
+            --exclude 'storage/framework/views' \
+            .
+
+      - name: Upload and activate
+        env:
+          SG_HOST: ${{ secrets.SG_SSH_HOST }}
+          SG_USER: ${{ secrets.SG_SSH_USER }}
+          SG_PORT: ${{ secrets.SG_SSH_PORT }}
+          SG_SSH_KEY: ${{ secrets.SG_SSH_KEY }}
+          SG_SSH_PASSPHRASE: ${{ secrets.SG_SSH_PASSPHRASE }}
+          WORXEVENTS_BASE: ${{ vars.WORXEVENTS_BASE }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          ACTION_INPUT: ${{ github.event_name == 'workflow_run' && 'deploy' || inputs.action }}
+          RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ssh-siteground.sh scripts/prepare-siteground-ssh.sh scripts/remote-activate.sh
+          action="$ACTION_INPUT"
+          if [[ "$action" != "deploy" && "$action" != "rollback" ]]; then
+            echo "ACTION must be deploy or rollback." >&2
+            exit 1
+          fi
+          close_ssh() {
+            timeout 15 scripts/ssh-siteground.sh -O exit "${SG_USER}@${SG_HOST}" >/dev/null 2>&1 || true
+          }
+          trap close_ssh EXIT
+          if [[ "$action" == "deploy" ]]; then
+            scripts/ssh-siteground.sh "${SG_USER}@${SG_HOST}" "test -d www/app.worxevents.com || { echo missing=document_root; echo 'Create the app.worxevents.com site in Site Tools. This workflow does not create a SiteGround site.'; exit 2; }; mkdir -p www/app.worxevents.com/laravel/incoming"
+            scripts/ssh-siteground.sh "${SG_USER}@${SG_HOST}" "cat > www/app.worxevents.com/laravel/incoming/${RELEASE_SHA}.tar.gz" < "/tmp/worxevents-${RELEASE_SHA}.tar.gz"
+            rm -f "/tmp/worxevents-${RELEASE_SHA}.tar.gz"
+          fi
+          # Values are passed as the remote process environment, not printed.
+          base_prefix=""
+          if [[ -n "${WORXEVENTS_BASE:-}" ]]; then
+            base_prefix="$(printf 'WORXEVENTS_BASE=%q ' "$WORXEVENTS_BASE")"
+          fi
+          echo "Document root is \$WORXEVENTS_BASE/public_html. Default site directory is ~/www/app.worxevents.com. Set the Actions variable WORXEVENTS_BASE to override that directory." >> "$GITHUB_STEP_SUMMARY"
+          remote_env="${base_prefix}$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q APP_KEY=%q' \
+            "$action" "$RELEASE_SHA" "${DB_HOST:-localhost}" "${DB_PORT:-3306}" "${DB_DATABASE:-}" "${DB_USERNAME:-}" "${DB_PASSWORD:-}" "${APP_KEY:-}")"
+          {
+            echo
+            echo '```'
+            scripts/ssh-siteground.sh "${SG_USER}@${SG_HOST}" "${remote_env} bash -s" < scripts/remote-activate.sh
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the public site
+        run: |
+          set -euo pipefail
+          set +e
+          code="$(curl -sS -o /tmp/worxevents-home.txt -w '%{http_code}' --max-time 25 https://app.worxevents.com/)"
+          status=$?
+          set -e
+          if [[ "$status" -ne 0 ]]; then
+            echo "https://app.worxevents.com/ did not respond (curl exit ${status})."
+            exit 1
+          fi
+          echo "http_status=${code}" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ "$code" == "202" ]]; then
+            echo "SiteGround returned 202. That is the host bot check, not a response from Laravel." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
