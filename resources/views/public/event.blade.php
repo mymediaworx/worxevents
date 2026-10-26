@@ -13,6 +13,13 @@
     @isset($holdToken)
         <p class="status" role="status">Reservation code <strong>{{ $holdToken }}</strong>@isset($holdExpires) expires {{ $holdExpires->timezone($event->timezone)->format('M j, g:i A T') }}@endisset. Enter it when you register. It is shown only here.</p>
     @endisset
+    @php
+        $artFile = public_path('images/demo/'.$event->slug.'.svg');
+        $artUrl = is_file($artFile) ? asset('images/demo/'.$event->slug.'.svg').'?v='.filemtime($artFile) : null;
+    @endphp
+    @if ($artUrl)
+        <figure class="event-hero"><img src="{{ $artUrl }}" alt=""></figure>
+    @endif
     <p class="eyebrow">{{ $event->category->name ?? 'Event' }}</p>
     <h1>{{ $event->title }}</h1>
     <p class="meta">
@@ -76,7 +83,7 @@
     </ul>
     @if ($canRegister)
         <h2>Register</h2>
-        <form method="post" action="{{ route('checkout.store', $event->slug) }}" class="stack" @if (!empty($acceptScript)) data-accept-form data-api-login="{{ $acceptApiLogin }}" data-client-key="{{ $acceptClientKey }}" @endif>
+        <form method="post" action="{{ route('checkout.store', $event->slug) }}" class="stack panel" @if (!empty($acceptScript)) data-accept-form data-api-login="{{ $acceptApiLogin }}" data-client-key="{{ $acceptClientKey }}" @endif>
             @csrf
             <label>Your name
                 <input name="guest_name" required autocomplete="name" value="{{ old('guest_name') }}">
@@ -219,7 +226,7 @@
         </form>
         @if (!empty($acceptScript))
             <script src="{{ $acceptScript }}"></script>
-            <script src="{{ asset('js/accept-checkout.js') }}"></script>
+            <script src="{{ asset('js/accept-checkout.js') }}?v={{ filemtime(public_path('js/accept-checkout.js')) }}"></script>
         @endif
     @endif
     <h2>Waitlist</h2>

@@ -63,21 +63,19 @@ Error views: 403, 404, 419, 429.
 
 ## Design
 
-Mobile-first. The visual target is a quiet, original layout: warm paper, near-black type, one accent. It is not an Apple theme and it does not copy another product's marks.
-
-Tokens in `public/css/worxevents.css`:
+Mobile-first. The visual target is the BrandWorx staff shell used by ReserveWorx: a white app bar, grey page, rounded white cards, a sidebar from 1024px, and a bottom tab bar on smaller screens. Plain CSS in `public/css/worxevents.css`. No Node build.
 
 | Token | Value | Use |
 |---|---|---|
-| `--paper` | `#f6f5f2` | Page background |
-| `--surface` | `#ffffff` | Cards and header |
-| `--ink` | `#1a1a18` | Text |
-| `--muted` | `#5c5a55` | Secondary text |
-| `--line` | `#e4e1da` | Borders |
-| `--accent` | `#0c5c4e` | Links, focus, primary actions |
-| `--danger` | `#8e2f2f` | Errors |
+| `--page` | `#F3F4F6` | Page background |
+| `--surface` | `#FFFFFF` | Cards and app bar |
+| `--ink` | `#1F2937` | Text |
+| `--muted` | `#4B5563` | Secondary text, darkened so it clears WCAG AA on the page |
+| `--brand` | `#0F5C4D` | Primary actions, avatar, links |
+| `--accent` | `#F59E0B` | Amber highlight |
+| `--danger` | `#B91C1C` | Errors and reverse actions |
 
-The font stack is `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`. No webfont is downloaded.
+Type is Inter (400–700) from Google Fonts, then `"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`.
 
 WCAG 2.2 AA is the target: text contrast, a 3px focus ring, 44px minimum hit targets, a skip link, and `prefers-reduced-motion: reduce` turning off smooth scroll and shrinking animation. A formal accessibility audit has not been run.
 

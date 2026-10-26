@@ -95,6 +95,15 @@ WORXEVENTS_BASE="${tmp}/via-link" ACTION=deploy RELEASE=20261026e SOURCE="$src" 
 [[ "$(readlink -f "${base}/laravel/current")" == "${base}/laravel/releases/20261026e" ]]
 [[ ! -d "${base}/laravel/releases/20261026b" ]]
 
+mkdir -p "${src}/public/css" "${src}/public/js" "${src}/public/images/demo"
+printf '%s\n' 'body{color:#0F5C4D}' > "${src}/public/css/worxevents.css"
+printf '%s\n' '/* scan */' > "${src}/public/js/check-in.js"
+printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"></svg>' > "${src}/public/images/demo/demo-community-night.svg"
+WORXEVENTS_BASE="$base" ACTION=deploy RELEASE=20261026f SOURCE="$src" bash "$script"
+grep -q 'body{color:#0F5C4D}' "${base}/public_html/css/worxevents.css"
+grep -q 'scan' "${base}/public_html/js/check-in.js"
+[[ -f "${base}/public_html/images/demo/demo-community-night.svg" ]]
+
 set +e
 WORXEVENTS_BASE="${tmp}/public_html/site" ACTION=deploy RELEASE=nope SOURCE="$src" bash "$script" >/dev/null 2>&1
 status=$?

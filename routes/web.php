@@ -33,8 +33,30 @@ use App\Http\Controllers\PublicSite\EventPageController;
 use App\Http\Controllers\PublicSite\MediaController;
 use App\Http\Controllers\PublicSite\RegistrationController;
 use App\Http\Controllers\PublicSite\SitemapController;
+use App\Http\Controllers\PublicSite\UiAssetController;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
+
+$uiAssets = [
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    ValidateCsrfToken::class,
+];
+
+Route::get('/css/worxevents.css', [UiAssetController::class, 'stylesheet'])
+    ->withoutMiddleware($uiAssets)
+    ->name('ui.css');
+Route::get('/js/{file}', [UiAssetController::class, 'script'])
+    ->where('file', '[a-z0-9-]+\.js')
+    ->withoutMiddleware($uiAssets)
+    ->name('ui.js');
+Route::get('/images/demo/{file}', [UiAssetController::class, 'demoImage'])
+    ->where('file', '[a-z0-9-]+\.svg')
+    ->withoutMiddleware($uiAssets)
+    ->name('ui.demo-image');
 
 Route::get('/', function (Request $request) {
     if ($request->attributes->get('host_kind') === 'platform') {
