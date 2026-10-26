@@ -1,6 +1,12 @@
 # Deployment
 
-`scripts/release.sh` activates a release that was already built, or rolls back to the previous one. It does not install PHP dependencies, does not run migrations, and does not print the environment file.
+Pushes to `main` run CI. When that CI succeeds, `.github/workflows/deploy.yml` starts the **Deploy** job automatically. The workflow does not use a GitHub environment, so nothing waits for a manual approval. The job runs and fails if CI did not pass. It is not skipped.
+
+The job builds `vendor` on the runner, uploads one archive, and runs `scripts/remote-activate.sh` on the host. That script creates `laravel/shared/.env` when it is missing, generates `APP_KEY` on the server, and does not print the key or the database password. Database credentials come from the `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` Actions secrets. SiteGround SSH uses `SG_HOST`, `SG_USER`, `SG_PORT`, and `SG_SSH_KEY`. None of those values belong in git. If the `app.worxevents.com` directory does not already exist, the job stops with `missing=document_root` and does not invent a SiteGround site.
+
+Stripe secrets are not read and no Stripe call is made.
+
+`scripts/release.sh` activates a release that was already built, or rolls back to the previous one. It does not install PHP dependencies and does not print the environment file. Migrations run from `remote-activate.sh` only after a database login succeeds.
 
 Default base: `$HOME/www/app.worxevents.com`. Override with `WORXEVENTS_BASE`. The base path must be absolute and must not contain `public_html`. The script creates `public_html` under that base.
 

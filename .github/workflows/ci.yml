@@ -91,6 +91,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - run: bash tests/scripts/release_test.sh
+      - run: bash tests/scripts/remote_activate_test.sh
 
   tests:
     name: Tests (${{ matrix.name }})

@@ -19,5 +19,5 @@ Phase 1 is the foundation. These are absent on purpose.
 - A formal WCAG audit has not been run. Tokens and targets are aimed at WCAG 2.2 AA.
 - SiteGround for this domain has not been measured ([HOSTING.md](HOSTING.md)).
 - CI is written for MySQL 8.4 and MariaDB 11.8. The machine that produced this phase ran PHPUnit on MySQL 8.0.46 only. Docker was not available here, so those two engines were not executed in this run.
-- There is no deploy workflow and no hosting secret in the repo.
+- Deploy reads SiteGround and database credentials from GitHub Actions secrets. Those values are not in the repo. The workflow does not call Stripe.
 - Node and Vite are not part of the app. An upload that contains `node_modules` has that directory removed by the release script.
