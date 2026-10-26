@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'WorxEvents' }}</title>
+    @isset($robots)
+        <meta name="robots" content="{{ $robots }}">
+    @endisset
     <link rel="stylesheet" href="{{ asset('css/worxevents.css') }}">
 </head>
 <body>

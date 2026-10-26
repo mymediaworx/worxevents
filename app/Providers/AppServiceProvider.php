@@ -53,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($email.'|'.$request->ip());
         });
 
+        RateLimiter::for('checkout', function (Request $request): Limit {
+            return Limit::perMinute(10)->by((string) $request->ip());
+        });
+
+        RateLimiter::for('contact', function (Request $request): Limit {
+            return Limit::perMinute(5)->by((string) $request->ip());
+        });
+
         Gate::before(function (User $user, string $ability): ?bool {
             if (! in_array($ability, RoleCatalog::permissionSlugs(), true)) {
                 return null;

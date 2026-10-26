@@ -20,7 +20,10 @@ final class Navigation
     {
         return [
             ['label' => 'Dashboard', 'route' => 'dashboard', 'permission' => null],
+            ['label' => 'Setup', 'route' => 'setup', 'permission' => 'organization.settings.update'],
             ['label' => 'Events', 'route' => 'events', 'permission' => 'events.view'],
+            ['label' => 'Venues', 'route' => 'venues', 'permission' => 'events.view'],
+            ['label' => 'Reports', 'route' => 'reports', 'permission' => 'finance.view'],
             ['label' => 'Box office', 'route' => 'box-office', 'permission' => 'tickets.sell'],
             ['label' => 'Check-in', 'route' => 'check-in', 'permission' => 'checkin.scan'],
             ['label' => 'Finance', 'route' => 'finance', 'permission' => 'finance.view'],

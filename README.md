@@ -1,6 +1,6 @@
 # WorxEvents
 
-WorxEvents is a multi-tenant event ticketing and registration service. Phase 1 is the foundation: organizations, authentication, roles, the booking-fee engine, and the payment boundary. Checkout, events, and live charges are later phases.
+WorxEvents is a multi-tenant event ticketing and registration service. Phase 1 is organizations, authentication, roles, the booking-fee engine, and the payment boundary. Phase 2 adds the public catalog, free registration, inventory holds, and digital tickets. Paid checkout and live card charges are later. Stripe stays a disabled adapter.
 
 This repository is public until it is made private. Do not commit `.env` files, tokens, webhook secrets, upgrade URLs, or customer data.
 

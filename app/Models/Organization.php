@@ -21,9 +21,17 @@ class Organization extends Model
      */
     protected $fillable = [
         'name',
+        'legal_name',
+        'support_email',
         'slug',
         'status',
         'timezone',
+        'currency',
+        'brand_accent',
+        'logo_path',
+        'description',
+        'setup_step',
+        'setup_completed_at',
     ];
 
     /**
@@ -33,6 +41,8 @@ class Organization extends Model
     {
         return [
             'status' => OrganizationStatus::class,
+            'setup_step' => 'integer',
+            'setup_completed_at' => 'datetime',
         ];
     }
 

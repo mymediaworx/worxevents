@@ -60,8 +60,12 @@ Slugs are 3–63 characters. Reserved slugs include `www`, `app`, `admin`, `api`
 
 Owners and admins invite staff from `/team`. The invitation cannot be for `org_owner`. The email contains a link that lasts 7 days. The recipient signs in with that email, verifies it, and accepts on the same host.
 
-Buyers register on the organization host. That creates an `buyer` membership for that organization only.
+Buyers register on the organization host. That creates a `buyer` membership for that organization only.
+
+The owner can also finish `/setup` after sign-in: legal name, support email, description, logo, accent color, USD currency, and time zone. Each step saves. Finish marks setup complete and, if the organization is still `onboarding`, sets it `active`. Currency other than USD is rejected.
 
 ## Mail
 
-Until cron is installed, reset and invitation mail is sent during the request. `MAIL_MAILER=log` writes it to the log locally. Production needs the host's SMTP settings in `shared/.env`. See [DEPLOY.md](DEPLOY.md).
+Until cron is installed, reset, invitation, and ticket mail is sent during the request. `MAIL_MAILER=log` writes it to the log locally. Production needs the host's SMTP settings in `shared/.env`. See [DEPLOY.md](DEPLOY.md).
+
+Cron should run `php artisan schedule:run` every minute. That drains the database queue and releases expired ticket holds (`worxevents:reservations:release`). Holds last 15 minutes.

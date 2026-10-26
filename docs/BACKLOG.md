@@ -2,29 +2,29 @@
 
 Phase 1 is this repository's current scope. The order below is the recommended build order. Michael approved the fee and refund rows in [DECISIONS.md](DECISIONS.md) on 2026-10-26. Tax treatment, buyer-facing wording, and merchant of record are still open.
 
-## Phase 2 — Catalog and the public event
+## Phase 2 — Catalog and free registration
 
-Events, venues, ticket types, inventory, holds with a short expiry, and the public event page. Prices are integer cents and are copied onto a snapshot at order time. The booking-fee recorder runs once per order on the discounted ticket subtotal.
+Shipped on this branch: organizer setup, venues, events, sessions, categories, tags, ticket types, expiring inventory holds, free guest checkout, attendees, hashed ticket tokens with SVG QR and PDF email, the public site, sitemap, Open Graph, Event structured data, draft `noindex`, and basic reports. A free order records a $0 booking-fee snapshot.
 
-## Phase 3 — Stripe Connect
+## Phase 3 — Authorize.net paid ticketing
 
-Organizer onboarding to a Standard account, direct charges, `application_fee_amount`, Checkout or the Payment Element, and signed webhooks. `collected` is posted only from `application_fee.created`. Refund submission becomes a real Stripe call and still does not complete until confirmation. Sandbox keys live in `shared/.env`.
+Accept.js on the organizer's merchant account. Credentials encrypted at rest. Sandbox and test mode. Webhook signature checks, idempotent notifications, transaction lookup, and refunds including partial refunds. Paid checkout computes totals on the server, shows the booking-fee line, and issues tickets only after the processor confirms the charge. The fee ledger gains `owed` and `remitted` through Authorize.net invoices. Live mode stays off until it is configured. Stripe remains the disabled stub. Tests mock the processor and do not create real charges.
 
-## Phase 4 — Authorize.net
+## Phase 4 — Event day
 
-Accept.js hosted payment form on the organizer's merchant account. No split. The fee posts as `owed`, then `remitted` when the invoice is paid. The same `PaymentGateway` interface grows a charge method. Stripe stays the first implementation.
+Mobile check-in, camera QR scanning, manual lookup, atomic check-in, duplicate and wrong-event outcomes, reversal with permission, box office walk-up, comps, cash and card records, shared inventory, and attendee exports.
 
-## Phase 5 — Door and box office
+## Phase 5 — Advanced catalog
 
-Box-office sales, check-in, QR validation, and a bounded offline queue that syncs through `background_jobs`. Staff roles already exist: `box_office` and `check_in_staff`.
+Recurring and timed-entry sessions, reserved seating, discounts, add-ons, waitlists, ticket transfers that invalidate the old token, and advanced reports. A visual seat designer can be deferred if the seat data and an accessible picker ship first.
 
-## Phase 6 — Money operations
+## Phase 6 — Growth and platform admin
 
-Refunds end to end, including the provider confirmation step and the booking-fee policy Michael approves. Finance reports and a reconciliation of assessed, collected, owed, and remitted.
+Platform admin for organizations, users, roles, suspension, fees, plans, payment oversight, disputes, audit logs, jobs, security events, and health. Support cases, referral and UTM tracking, promo QR codes, consented announcements, and analytics hooks behind consent.
 
-## Phase 7 — Buyer account and distribution
+## Phase 7 — Readiness
 
-Buyer order history beyond the shell, transfers, waitlists, embeds, and custom domains that are verified instead of trusted from config. Legal disclosures for the fee and the merchant of record ship with this, or earlier if counsel requires them before the first charge.
+Security review, concurrency tests for inventory, seats, and check-in, an accessibility pass, and the operator manuals: admin, organizer, troubleshooting, backup and restore, update and rollback, production readiness, and known limitations.
 
 ## Hardening that can land beside any phase
 

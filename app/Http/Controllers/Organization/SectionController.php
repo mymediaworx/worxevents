@@ -5,17 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 final class SectionController extends Controller
 {
-    public function events(Request $request): Response
-    {
-        return $this->page($request, 'Events', 'Event setup, ticket types, and capacity arrive in Phase 2. This page already checks the events.view permission.');
-    }
-
     public function boxOffice(Request $request): Response
     {
         return $this->page($request, 'Box office', 'In-person sales arrive in a later phase. This page already checks the tickets.sell permission.');
@@ -28,7 +24,17 @@ final class SectionController extends Controller
 
     public function tickets(Request $request): Response
     {
-        return $this->page($request, 'Your tickets', 'Buyer order history arrives with checkout. This page already checks the orders.view_own permission.');
+        $orders = Order::query()
+            ->where('buyer_user_id', $request->user()?->id)
+            ->with(['lines', 'attendees'])
+            ->latest()
+            ->limit(100)
+            ->get();
+
+        return response()->view('organization.tickets', [
+            'title' => 'Your tickets',
+            'orders' => $orders,
+        ]);
     }
 
     private function page(Request $request, string $title, string $body): Response
