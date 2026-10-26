@@ -4,9 +4,9 @@ Pushes to `main` run CI. When that CI succeeds, `.github/workflows/deploy.yml` s
 
 The site directory defaults to `~/www/app.worxevents.com`. The document root is always `$WORXEVENTS_BASE/public_html`, so the default document root is `~/www/app.worxevents.com/public_html`. Set the Actions variable `WORXEVENTS_BASE` to the directory that contains `public_html` if that path is different. Do not point it at `public_html` itself.
 
-SSH secrets are `SG_SSH_HOST`, `SG_SSH_USER`, `SG_SSH_PORT`, `SG_SSH_KEY`, and `SG_SSH_PASSPHRASE`. Database secrets are `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. A verified `mysqldump` is required before `migrate`. The passphrase-protected key is unlocked in the runner and is not printed.
+SSH secrets are `SG_SSH_HOST`, `SG_SSH_USER`, `SG_SSH_PORT`, `SG_SSH_KEY`, and `SG_SSH_PASSPHRASE`. Database secrets are `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. A verified `mysqldump` is required before `migrate`. The passphrase-protected key is unlocked in the runner and is not printed.
 
-The job builds `vendor` on the runner, uploads one archive, and runs `scripts/remote-activate.sh` on the host. That script creates `laravel/shared/.env` when it is missing, generates `APP_KEY` on the server, and does not print the key or the database password. Database credentials come from the `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` Actions secrets. SiteGround SSH uses `SG_HOST`, `SG_USER`, `SG_PORT`, and `SG_SSH_KEY`. None of those values belong in git. If the `app.worxevents.com` directory does not already exist, the job stops with `missing=document_root` and does not invent a SiteGround site.
+The job builds `vendor` on the runner, uploads one archive, and runs `scripts/remote-activate.sh` on the host. That script writes the database secrets into `laravel/shared/.env` (replacing them when a new non-empty value is provided) and does not print them. It generates `APP_KEY` on the server only when that file does not already have one. `MAIL_MAILER` stays `log` until SMTP is configured. `MAIL_LOG_CHANNEL=mail` records those messages in the shared log even when `LOG_LEVEL=error`. After a database login succeeds, the script dumps the database, runs `migrate --force`, then `worxevents:platform-admin michael@brandworx.ai` and `worxevents:demo`. None of those secret values belong in git. If the `app.worxevents.com` directory does not already exist, the job stops with `missing=document_root` and does not invent a SiteGround site.
 
 Stripe secrets are not read and no Stripe call is made.
 
@@ -47,7 +47,7 @@ bash scripts/release.sh
 
 `RELEASE` is a short file-safe name. Deploy refuses to reuse an id. Rollback swaps `current` and `previous` and rewrites the front controller and `.htaccess`. It does not delete the tree you rolled off, and it does not run `migrate:rollback`.
 
-GNU `mv -Tf` replaces the symlink. The first deploy needs `laravel/shared/.env` to exist already. Create that file on the server. Do not copy it from git.
+GNU `mv -Tf` replaces the symlink. `remote-activate.sh` creates `laravel/shared/.env` on the server. Do not copy that file from git.
 
 ## What a deploy deletes
 
@@ -61,20 +61,22 @@ GNU `mv -Tf` replaces the symlink. The first deploy needs `laravel/shared/.env` 
 
 ## Cron
 
-After the site exists, one Site Tools cron, every minute, using PHP 8.2 or newer:
+The activate script tries to install this crontab entry. If `crontab` is rejected, the log prints `manual=cron` and the exact line. Add that line in SiteGround Site Tools → Devs → Cron Jobs, every minute:
 
 ```text
-php /home/<account>/www/app.worxevents.com/laravel/current/artisan schedule:run
+* * * * * /usr/local/php82/bin/php /home/<account>/www/app.worxevents.com/laravel/current/artisan schedule:run >> /dev/null 2>&1
 ```
+
+Use the `cron_command` value from the deploy log. The PHP path and home directory come from the server.
 
 The scheduler runs `queue:work database --stop-when-empty --tries=3 --max-time=20` with `withoutOverlapping`. The queue table is `background_jobs`. Until this cron exists, password resets and invitations are sent inside the web request on purpose.
 
 ## HTTPS, mail, backups
 
-- Force HTTPS in Site Tools. The application also marks session cookies `Secure` when `APP_ENV=production`.
-- Point `MAIL_*` at the host relay. Keep the password in `shared/.env`.
-- Take a database dump into `laravel/shared/backups` before a migration. The script keeps the two newest files and will delete older ones on the next deploy.
-- Migrations are a separate `php artisan migrate --force` from the current release, after a dump, and only when someone intends to change the schema. The release script does not run them.
+- Leave SiteGround HTTPS Enforce off. Production redirects HTTP to HTTPS in the application and sets session cookies `Secure`.
+- Leave `MAIL_MAILER=log` until SMTP is configured. The reset message is written to `laravel/shared/storage/logs/laravel.log`. Do not copy that file into the deploy log.
+- The activate script dumps the database into `laravel/shared/backups` before `migrate --force`. The release script keeps the two newest files.
+- `worxevents:platform-admin` creates `michael@brandworx.ai` when that user is new and sends one reset link to the log. A second run does not send another link. Forgot password on `https://app.worxevents.com` writes a new link to the same log. The link expires in 60 minutes. The new password needs 12 characters, mixed case, and a number.
 
 ## Inodes
 

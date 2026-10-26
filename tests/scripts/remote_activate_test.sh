@@ -7,6 +7,17 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+mkdir -p "${tmp}/bin"
+cat > "${tmp}/bin/crontab" << 'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "${CRONTAB_STUB_LOG}"
+exit 1
+EOF
+chmod +x "${tmp}/bin/crontab"
+export PATH="${tmp}/bin:${PATH}"
+export CRONTAB_STUB_LOG="${tmp}/crontab-invocations.txt"
+touch "$CRONTAB_STUB_LOG"
+
 base="${tmp}/app.worxevents.com"
 mkdir -p "$base"
 
@@ -49,5 +60,64 @@ status=$?
 set -e
 [[ "$status" -eq 2 ]]
 grep -q "missing=document_root" "${tmp}/missing.txt"
+grep -q "manual=cron" "$log"
+grep -q "cron_line=" "$log"
+[[ -s "$CRONTAB_STUB_LOG" ]]
+
+env_file="${base}/laravel/shared/.env"
+key_before="$(sed -n 's/^APP_KEY=//p' "$env_file")"
+cp "${tmp}/release.tar.gz" "${base}/laravel/incoming/def456.tar.gz"
+bad_log="${tmp}/bad.txt"
+set +e
+DB_HOST=127.0.0.1 \
+DB_PORT=1 \
+DB_DATABASE=worxevents_absent \
+DB_USERNAME=worxevents_absent \
+DB_PASSWORD='s3cret-quote"slash\tail' \
+APP_KEY='base64:should-not-replace' \
+WORXEVENTS_BASE="$base" ACTION=deploy RELEASE=def456 \
+  bash "${root}/scripts/remote-activate.sh" > "$bad_log"
+status=$?
+set -e
+[[ "$status" -eq 1 ]]
+grep -q "db_login=failed" "$bad_log"
+grep -q "migrated=skipped" "$bad_log"
+grep -q "deployed=def456" "$bad_log"
+grep -q "manual=cron" "$bad_log"
+if grep -F 's3cret-quote' "$bad_log" >/dev/null; then
+  echo "The database password was printed." >&2
+  exit 1
+fi
+if grep -F 'base64:should-not-replace' "$env_file" >/dev/null; then
+  echo "An existing application key was replaced." >&2
+  exit 1
+fi
+[[ "$(sed -n 's/^APP_KEY=//p' "$env_file")" == "$key_before" ]]
+grep -F 'DB_DATABASE="worxevents_absent"' "$env_file" >/dev/null
+grep -F 'DB_PASSWORD="s3cret-quote\"slash\\tail"' "$env_file" >/dev/null
+grep -F 'SESSION_DRIVER="file"' "$env_file" >/dev/null
+grep -F 'MAIL_MAILER="log"' "$env_file" >/dev/null
+grep -F 'MAIL_LOG_CHANNEL="mail"' "$env_file" >/dev/null
+password_line="$(grep -F 'DB_PASSWORD=' "$env_file")"
+
+cp "${tmp}/release.tar.gz" "${base}/laravel/incoming/ghi789.tar.gz"
+set +e
+DB_HOST=127.0.0.1 \
+DB_PORT=1 \
+DB_DATABASE=worxevents_absent \
+DB_USERNAME=worxevents_absent \
+DB_PASSWORD='s3cret-quote"slash\tail' \
+APP_KEY='base64:should-not-replace' \
+WORXEVENTS_BASE="$base" ACTION=deploy RELEASE=ghi789 \
+  bash "${root}/scripts/remote-activate.sh" > "${tmp}/bad-again.txt"
+status=$?
+set -e
+[[ "$status" -eq 1 ]]
+[[ "$(grep -F 'DB_PASSWORD=' "$env_file")" == "$password_line" ]]
+[[ "$(sed -n 's/^APP_KEY=//p' "$env_file")" == "$key_before" ]]
+if grep -F 's3cret-quote' "${tmp}/bad-again.txt" >/dev/null; then
+  echo "The database password was printed on the second write." >&2
+  exit 1
+fi
 
 echo "remote_activate_test=ok"

@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureOrganizationMember;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsurePlatformMember;
+use App\Http\Middleware\ForceHttps;
 use App\Http\Middleware\RememberCampaign;
 use App\Http\Middleware\ResolveHost;
 use Illuminate\Foundation\Application;
@@ -17,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
+        // After TrustProxies, so a proxy's HTTPS flag is visible before the redirect.
+        $middleware->append(ForceHttps::class);
         // Host resolution has to run before route-model binding, or tenant
         // scopes hide the bound model and the request 404s.
         $middleware->web(prepend: [

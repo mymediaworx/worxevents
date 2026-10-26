@@ -65,6 +65,16 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Password resets use the log mailer until SMTP exists. That transport
+        // writes at debug, so it has its own channel and is not dropped when
+        // LOG_LEVEL is error. The message stays in shared storage, not in CI logs.
+        'mail' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/laravel.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

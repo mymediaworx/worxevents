@@ -36,7 +36,7 @@ Published plan limits (inode cap, CPU, process count) still have to be read from
 - [ ] Database version, engine InnoDB, and a transaction rollback
 - [ ] Database user limited to the application schema. Password stored only in `laravel/shared/.env`
 - [ ] Cron: `php artisan schedule:run` every minute, PHP 8.2+ binary
-- [ ] HTTPS certificate installed, and HTTPS forced in Site Tools
+- [ ] HTTPS certificate installed. Leave SiteGround HTTPS Enforce off; the app redirects to HTTPS and sets secure cookies.
 - [ ] Document root is `public_html`, whose `index.php` boots `../laravel/current`
 - [ ] `laravel/shared/.env` is not under `public_html`
 - [ ] Subdomain or wildcard for `{slug}.worxevents.com`, plus the platform host `app.worxevents.com`
@@ -45,4 +45,4 @@ Published plan limits (inode cap, CPU, process count) still have to be read from
 - [ ] Outbound HTTPS to `api.stripe.com` from the host, once Stripe is in scope
 - [ ] Confirm a browser request does not receive the 202 bot interstitial
 
-There is no GitHub Actions deploy workflow. Adding one requires hosting secrets stored in GitHub, not in this repository.
+Deploys run from `.github/workflows/deploy.yml` after CI succeeds on `main`. Hosting secrets stay in GitHub Actions, not in this repository.

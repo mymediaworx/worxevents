@@ -17,4 +17,4 @@ If the site directory does not exist yet, the job exits with `missing=document_r
 
 ## After the first boot
 
-Cron must call `php artisan schedule:run` every minute. HTTPS should be forced at the host. SMTP is not configured by the deploy script (`MAIL` stays `log` until someone sets it). `worxevents:platform-admin` creates the first platform user. `config/organizations.php` stays empty until hostnames are added on the server, not in this public repository.
+The deploy script writes `DB_*` into `laravel/shared/.env` without printing them, dumps the database, migrates, then seeds the platform admin and the demo organizer. `MAIL_MAILER` stays `log` until SMTP is set. HTTPS redirect and secure cookies are in the app; leave SiteGround HTTPS Enforce off. If the log says `manual=cron`, add the printed `cron_command` in SiteGround Site Tools → Devs → Cron Jobs, every minute. `config/organizations.php` stays empty. The demo hostname is an `organization_domains` row, not a committed config entry.
