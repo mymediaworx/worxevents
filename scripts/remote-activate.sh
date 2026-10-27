@@ -205,7 +205,9 @@ $defaults = [
     'APP_ENV' => 'production',
     'APP_DEBUG' => 'false',
     'APP_URL' => 'https://app.worxevents.com',
-    'LOG_CHANNEL' => 'stack',
+    'LOG_CHANNEL' => 'daily',
+    'LOG_STACK' => 'daily',
+    'LOG_DAILY_DAYS' => '7',
     'LOG_LEVEL' => 'error',
     'DB_CONNECTION' => 'mysql',
     'DB_HOST' => 'localhost',
@@ -240,6 +242,11 @@ if ($smtpReady) {
         $existing['MAIL_SCHEME'] = ((string) $existing['MAIL_PORT'] === '465') ? 'smtps' : 'smtp';
     }
 }
+
+// Inode retention: always prefer daily logs with a 7-day window on the server.
+$existing['LOG_CHANNEL'] = 'daily';
+$existing['LOG_STACK'] = 'daily';
+$existing['LOG_DAILY_DAYS'] = '7';
 
 foreach ($defaults as $key => $value) {
     if (! array_key_exists($key, $existing) || $existing[$key] === '') {

@@ -135,10 +135,14 @@ jobs:
           fi
           tar -czf "/tmp/worxevents-${RELEASE_SHA}.tar.gz" \
             --exclude '.git' \
+            --exclude '.github' \
             --exclude '.env' \
             --exclude '.env.*' \
             --exclude 'node_modules' \
             --exclude 'tests' \
+            --exclude 'docs' \
+            --exclude 'phpunit.xml' \
+            --exclude 'phpunit.xml.dist' \
             --exclude 'storage/logs' \
             --exclude 'storage/framework/cache/data' \
             --exclude 'storage/framework/sessions' \

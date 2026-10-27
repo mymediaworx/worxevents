@@ -139,10 +139,11 @@ prune_newest() {
 }
 
 prune_runtime() {
-  local keep_current keep_previous dir full
+  local keep_current keep_previous dir full nm
   keep_current="$(release_realpath "$current" || true)"
   keep_previous="$(release_realpath "$previous" || true)"
 
+  # Keep only the live current release plus one previous rollback target.
   shopt -s nullglob
   for dir in "$releases"/*; do
     [[ -d "$dir" ]] || continue
@@ -157,12 +158,28 @@ prune_runtime() {
   rm -f "$incoming"/*.tar.gz "$incoming"/*.tgz
   shopt -u nullglob
 
+  # Never leave node_modules on the server (not shipped; belt-and-suspenders).
+  while IFS= read -r nm; do
+    [[ -n "$nm" ]] || continue
+    case "$nm" in
+      "$laravel"/*)
+        rm -rf "$nm"
+        echo "pruned_node_modules=${nm}"
+        ;;
+    esac
+  done < <(find "$laravel" -type d -name node_modules 2>/dev/null || true)
+
   find "${shared}/storage/framework/cache/data" -type f -delete
   find "${shared}/storage/framework/views" -type f ! -name '.gitignore' -delete
+  find "${shared}/storage/framework/sessions" -type f ! -name '.gitignore' -mtime +2 -delete
   echo "caches=pruned"
 
+  # Daily logs: drop files older than 7 days; keep at most 2 backup archives.
+  if [[ -d "${shared}/storage/logs" ]]; then
+    find "${shared}/storage/logs" -type f \( -name '*.log' -o -name '*.log.*' \) -mtime +7 -delete
+  fi
   prune_newest "${shared}/backups" 2
-  prune_newest "${shared}/storage/logs" 2
+  echo "logs=pruned_older_than_7_days"
 }
 
 unlink_storage() {
@@ -207,8 +224,9 @@ deploy_release() {
 
   mkdir -p "$dest"
   cp -a "${source}/." "$dest/"
-  rm -rf "${dest}/.git" "${dest}/node_modules"
-  rm -f "${dest}/.env"
+  # Never keep VCS, frontend deps, or test trees on the server release.
+  rm -rf "${dest}/.git" "${dest}/node_modules" "${dest}/tests" "${dest}/.github"
+  rm -f "${dest}/.env" "${dest}/phpunit.xml" "${dest}/phpunit.xml.dist"
   unlink_storage "${dest}/storage"
   ln -s "${shared}/storage" "${dest}/storage"
   ln -s "${shared}/.env" "${dest}/.env"
