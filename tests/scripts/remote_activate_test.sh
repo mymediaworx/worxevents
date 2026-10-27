@@ -7,6 +7,10 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+unset DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD APP_KEY \
+  MAIL_HOST MAIL_PORT MAIL_USERNAME MAIL_PASSWORD MAIL_FROM_ADDRESS MAIL_FROM_NAME MAIL_SCHEME \
+  WE_APP_KEY || true
+
 mkdir -p "${tmp}/bin"
 cat > "${tmp}/bin/crontab" << 'EOF'
 #!/bin/sh
@@ -119,5 +123,54 @@ if grep -F 's3cret-quote' "${tmp}/bad-again.txt" >/dev/null; then
   echo "The database password was printed on the second write." >&2
   exit 1
 fi
+
+cp "${tmp}/release.tar.gz" "${base}/laravel/incoming/jkl012.tar.gz"
+mail_log="${tmp}/mail.txt"
+MAIL_HOST=mail.worxevents.com \
+MAIL_PORT=465 \
+MAIL_SCHEME=smtps \
+MAIL_USERNAME=noreply@worxevents.com \
+MAIL_FROM_ADDRESS=noreply@worxevents.com \
+MAIL_FROM_NAME=WorxEvents \
+MAIL_PASSWORD='p@ss"word\tail' \
+DB_HOST=127.0.0.1 \
+DB_PORT=1 \
+DB_DATABASE=worxevents_absent \
+DB_USERNAME=worxevents_absent \
+DB_PASSWORD='s3cret-quote"slash\tail' \
+WORXEVENTS_BASE="$base" ACTION=deploy RELEASE=jkl012 \
+  bash "${root}/scripts/remote-activate.sh" > "$mail_log" || true
+grep -q "mail=smtp" "$mail_log"
+grep -q "db_login=failed" "$mail_log"
+if grep -F 'p@ss"word' "$mail_log" >/dev/null; then
+  echo "The mail password was printed." >&2
+  exit 1
+fi
+grep -F 'MAIL_MAILER="smtp"' "$env_file" >/dev/null
+grep -F 'MAIL_SCHEME="smtps"' "$env_file" >/dev/null
+grep -F 'MAIL_HOST="mail.worxevents.com"' "$env_file" >/dev/null
+grep -F 'MAIL_PORT="465"' "$env_file" >/dev/null
+grep -F 'MAIL_USERNAME="noreply@worxevents.com"' "$env_file" >/dev/null
+grep -F 'MAIL_FROM_ADDRESS="noreply@worxevents.com"' "$env_file" >/dev/null
+grep -F 'MAIL_FROM_NAME="WorxEvents"' "$env_file" >/dev/null
+grep -F 'MAIL_PASSWORD="p@ss\"word\\tail"' "$env_file" >/dev/null
+
+cp "${tmp}/release.tar.gz" "${base}/laravel/incoming/mno345.tar.gz"
+keep_log="${tmp}/mail-keep.txt"
+DB_HOST=127.0.0.1 \
+DB_PORT=1 \
+DB_DATABASE=worxevents_absent \
+DB_USERNAME=worxevents_absent \
+DB_PASSWORD='s3cret-quote"slash\tail' \
+WORXEVENTS_BASE="$base" ACTION=deploy RELEASE=mno345 \
+  bash "${root}/scripts/remote-activate.sh" > "$keep_log" || true
+grep -q "mail=smtp" "$keep_log"
+if grep -F 'p@ss"word' "$keep_log" >/dev/null; then
+  echo "The mail password was printed when the new value was empty." >&2
+  exit 1
+fi
+grep -F 'MAIL_HOST="mail.worxevents.com"' "$env_file" >/dev/null
+grep -F 'MAIL_PASSWORD="p@ss\"word\\tail"' "$env_file" >/dev/null
+grep -F 'MAIL_MAILER="smtp"' "$env_file" >/dev/null
 
 echo "remote_activate_test=ok"

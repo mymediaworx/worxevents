@@ -68,6 +68,6 @@ Paid tickets need `/payments`. The owner enters Authorize.net sandbox credential
 
 ## Mail
 
-Until cron is installed, reset, invitation, and ticket mail is sent during the request. `MAIL_MAILER=log` writes it to the log locally. Production needs the host's SMTP settings in `shared/.env`. See [DEPLOY.md](DEPLOY.md).
+Until cron is installed, reset, invitation, and ticket mail is sent during the request. Local `MAIL_MAILER=log` writes it to the log. Production SMTP is `smtps` on port 465 once the mail secrets are present in `shared/.env`. See [DEPLOY.md](DEPLOY.md).
 
 Cron should run `php artisan schedule:run` every minute. That drains the database queue and releases expired ticket holds (`worxevents:reservations:release`). Holds last 15 minutes.

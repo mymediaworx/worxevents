@@ -80,6 +80,37 @@ if [[ -z "$php_bin" ]]; then
   exit 1
 fi
 
+# One test message and one password reset the first time SMTP is active.
+# Later deploys leave the existing link alone.
+probe_mail() {
+  local mailer probe mail_status reset_status
+  mailer="$(sed -n 's/^MAIL_MAILER=//p' "${shared}/.env" | head -n 1)"
+  mailer="${mailer%\"}"
+  mailer="${mailer#\"}"
+  if [[ "$mailer" != "smtp" ]]; then
+    return 0
+  fi
+  probe="${shared}/mail.probe"
+  if [[ -f "$probe" ]]; then
+    echo "mail_probe=already"
+    return 0
+  fi
+  set +e
+  "$php_bin" "${BASE}/laravel/current/artisan" worxevents:mail-test michael@brandworx.ai
+  mail_status=$?
+  "$php_bin" "${BASE}/laravel/current/artisan" worxevents:password-reset michael@brandworx.ai
+  reset_status=$?
+  set -e
+  if [[ "$mail_status" -eq 0 && "$reset_status" -eq 0 ]]; then
+    date -u +%Y-%m-%dT%H:%M:%SZ > "$probe"
+    chmod 600 "$probe"
+    echo "mail_probe=sent"
+    return 0
+  fi
+  echo "mail_probe=failed"
+  return 1
+}
+
 write_env() {
   WE_ENV_PATH="${shared}/.env" "$php_bin" << 'PHP'
 <?php
@@ -133,15 +164,23 @@ if (is_file($path)) {
     }
 }
 
-// Database secrets replace the previous values whenever they are provided.
-// APP_KEY is filled only when the server does not already have one, so a
-// later deploy does not invalidate sessions or encrypted columns.
+// Database and mail secrets replace the previous values whenever they are
+// provided. An empty value is ignored so a missing secret cannot blank the
+// server. APP_KEY is filled only when the server does not already have one,
+// so a later deploy does not invalidate sessions or encrypted columns.
 foreach ([
     'DB_HOST' => (string) getenv('DB_HOST'),
     'DB_PORT' => (string) getenv('DB_PORT'),
     'DB_DATABASE' => (string) getenv('DB_DATABASE'),
     'DB_USERNAME' => (string) getenv('DB_USERNAME'),
     'DB_PASSWORD' => (string) getenv('DB_PASSWORD'),
+    'MAIL_HOST' => (string) getenv('MAIL_HOST'),
+    'MAIL_PORT' => (string) getenv('MAIL_PORT'),
+    'MAIL_USERNAME' => (string) getenv('MAIL_USERNAME'),
+    'MAIL_PASSWORD' => (string) getenv('MAIL_PASSWORD'),
+    'MAIL_FROM_ADDRESS' => (string) getenv('MAIL_FROM_ADDRESS'),
+    'MAIL_FROM_NAME' => (string) getenv('MAIL_FROM_NAME'),
+    'MAIL_SCHEME' => (string) getenv('MAIL_SCHEME'),
 ] as $key => $value) {
     if ($value !== '') {
         $existing[$key] = $value;
@@ -182,10 +221,25 @@ $defaults = [
     'CACHE_STORE' => 'file',
     'MAIL_MAILER' => 'log',
     'MAIL_LOG_CHANNEL' => 'mail',
+    'MAIL_FROM_NAME' => 'WorxEvents',
     'PLATFORM_DOMAINS' => 'app.worxevents.com',
     'WORXEVENTS_APEX' => 'worxevents.com',
     'PAYMENTS_GATEWAY' => 'stripe',
 ];
+
+$smtpReady = ($existing['MAIL_HOST'] ?? '') !== ''
+    && ($existing['MAIL_PORT'] ?? '') !== ''
+    && ($existing['MAIL_USERNAME'] ?? '') !== ''
+    && ($existing['MAIL_PASSWORD'] ?? '') !== ''
+    && ($existing['MAIL_FROM_ADDRESS'] ?? '') !== '';
+
+if ($smtpReady) {
+    $existing['MAIL_MAILER'] = 'smtp';
+    $scheme = $existing['MAIL_SCHEME'] ?? '';
+    if ($scheme === '' || $scheme === 'null') {
+        $existing['MAIL_SCHEME'] = ((string) $existing['MAIL_PORT'] === '465') ? 'smtps' : 'smtp';
+    }
+}
 
 foreach ($defaults as $key => $value) {
     if (! array_key_exists($key, $existing) || $existing[$key] === '') {
@@ -216,9 +270,7 @@ foreach (['DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD'] as $key) {
     }
 }
 
-if (($existing['MAIL_PASSWORD'] ?? '') === '' && (string) getenv('MAIL_PASSWORD') === '') {
-    echo "manual=smtp\n";
-}
+echo $smtpReady ? "mail=smtp\n" : "manual=smtp\n";
 
 if (! $dbReady) {
     echo "db_login=skipped\n";
@@ -427,6 +479,12 @@ PHP
   fi
 else
   echo "migrated=skipped"
+fi
+
+if grep -q '^db_login=ok$' <<< "$env_log" && [[ -f "${BASE}/laravel/current/artisan" ]]; then
+  if ! probe_mail; then
+    prototype_failed=1
+  fi
 fi
 
 cron_line="* * * * * ${php_bin} ${BASE}/laravel/current/artisan schedule:run >> /dev/null 2>&1"
