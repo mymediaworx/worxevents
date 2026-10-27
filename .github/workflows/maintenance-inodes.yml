@@ -12,6 +12,7 @@ on:
         options:
           - report
           - cleanup
+          - caches
         default: report
 
 concurrency:
