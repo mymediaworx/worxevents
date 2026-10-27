@@ -79,6 +79,8 @@ jobs:
           DB_DATABASE: ${{ secrets.DB_DATABASE }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           APP_KEY: ${{ secrets.APP_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
         run: |
           set -euo pipefail
           if [ -n "${SG_HOST}" ]; then echo "::add-mask::${SG_HOST}"; fi
@@ -89,6 +91,8 @@ jobs:
           if [ -n "${DB_DATABASE}" ]; then echo "::add-mask::${DB_DATABASE}"; fi
           if [ -n "${DB_USERNAME}" ]; then echo "::add-mask::${DB_USERNAME}"; fi
           if [ -n "${APP_KEY}" ]; then echo "::add-mask::${APP_KEY}"; fi
+          if [ -n "${MAIL_PASSWORD}" ]; then echo "::add-mask::${MAIL_PASSWORD}"; fi
+          if [ -n "${MAIL_USERNAME}" ]; then echo "::add-mask::${MAIL_USERNAME}"; fi
 
       - name: Require SiteGround connection secrets
         env:
@@ -155,6 +159,11 @@ jobs:
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           APP_KEY: ${{ secrets.APP_KEY }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM_ADDRESS: ${{ secrets.MAIL_FROM_ADDRESS }}
           ACTION_INPUT: ${{ github.event_name == 'workflow_run' && 'deploy' || inputs.action }}
           RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
         run: |
@@ -185,7 +194,23 @@ jobs:
           if [[ -n "${APP_KEY:-}" ]]; then
             app_key_prefix="$(printf 'APP_KEY=%q ' "$APP_KEY")"
           fi
-          remote_env="${base_prefix}${app_key_prefix}$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q' \
+          # Empty mail values are omitted so a missing secret cannot blank the server.
+          mail_prefix=""
+          add_remote() {
+            local key="$1"
+            local value="$2"
+            if [[ -n "$value" ]]; then
+              mail_prefix+="$(printf '%s=%q ' "$key" "$value")"
+            fi
+          }
+          add_remote MAIL_SCHEME smtps
+          add_remote MAIL_FROM_NAME WorxEvents
+          add_remote MAIL_HOST "${MAIL_HOST:-}"
+          add_remote MAIL_PORT "${MAIL_PORT:-}"
+          add_remote MAIL_USERNAME "${MAIL_USERNAME:-}"
+          add_remote MAIL_FROM_ADDRESS "${MAIL_FROM_ADDRESS:-}"
+          add_remote MAIL_PASSWORD "${MAIL_PASSWORD:-}"
+          remote_env="${base_prefix}${app_key_prefix}${mail_prefix}$(printf 'ACTION=%q RELEASE=%q DB_HOST=%q DB_PORT=%q DB_DATABASE=%q DB_USERNAME=%q DB_PASSWORD=%q' \
             "$action" "$RELEASE_SHA" "${DB_HOST:-localhost}" "${DB_PORT:-3306}" "${DB_DATABASE:-}" "${DB_USERNAME:-}" "${DB_PASSWORD:-}")"
           {
             echo

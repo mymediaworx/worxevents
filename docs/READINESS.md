@@ -11,7 +11,7 @@ This report describes the tree on the phase 7 branch. It is not a statement that
 
 ## What was exercised here
 
-On this machine, `php artisan test --compact` reported 100 passed and 692 assertions. Pint and PHPStan level 5 reported no remaining issues. The database was MySQL 8.0.46 and the CLI was PHP 8.3.6. The MySQL 8.4 and MariaDB 11.8 jobs in CI were not run here because Docker is not available. Do not treat this report as those CI jobs passing.
+On this machine, `php artisan test --compact` reported 103 passed and 716 assertions. Pint and PHPStan level 5 reported no remaining issues. The database was MySQL 8.0.46 and the CLI was PHP 8.3.6. The MySQL 8.4 and MariaDB 11.8 jobs in CI were not run here because Docker is not available. Do not treat this report as those CI jobs passing.
 
 Concurrency tests hold the inventory, seat, and check-in row locks and expect a second connection to time out. An accessibility check covers the skip link, `lang`, named controls, the accessible-seat label, focus styles, and `prefers-reduced-motion`. It is not a formal WCAG audit.
 
@@ -21,8 +21,8 @@ Michael, or whoever operates the host, still has to:
 
 1. Create the SiteGround site for `app.worxevents.com` if it does not exist. Set `WORXEVENTS_BASE` if the directory is not `~/www/app.worxevents.com`.
 2. Keep `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` as Actions secrets. The deploy script writes them into `laravel/shared/.env` and does not print them. SSH secrets are `SG_SSH_HOST`, `SG_SSH_USER`, `SG_SSH_PORT`, `SG_SSH_KEY`, and `SG_SSH_PASSPHRASE`.
-3. If the deploy log says `manual=cron`, add the printed command in SiteGround Site Tools → Devs → Cron Jobs, every minute. Leave SiteGround HTTPS Enforce off. Set SMTP when you want mail to leave the server. Until then, `MAIL_MAILER` stays `log`.
-4. The deploy runs `worxevents:platform-admin` for `michael@brandworx.ai` and `worxevents:demo` (a free event and a paid event with no card processor). The reset link is in `laravel/shared/storage/logs/laravel.log` for 60 minutes. Forgot password on the platform host writes a new one. The link is not printed in GitHub.
+3. If the deploy log says `manual=cron`, add the printed command in SiteGround Site Tools → Devs → Cron Jobs, every minute. Leave SiteGround HTTPS Enforce off. Mail leaves the server when the log says `mail=smtp`. Until `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM_ADDRESS` are all set, `MAIL_MAILER` stays `log`.
+4. The deploy runs `worxevents:platform-admin` for `michael@brandworx.ai` and `worxevents:demo` (a free event and a paid event with no card processor). The first SMTP deploy also emails a test message and a reset link. Forgot password on the platform host sends the next one. The link is not printed in GitHub.
 5. Finish the legal and accounting reviews (D9, D18) before the public legal pages are treated as final. Those pages say they are not legal advice.
 6. Leave Stripe and Authorize.net live mode off until you choose to configure them.
 
