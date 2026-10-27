@@ -57,6 +57,16 @@ report_inodes() {
   echo "=== inode_report label=${label} ==="
   # SiteGround often restricts a full $HOME walk; prefer www + quota/df hints.
   echo "home_www_inodes=$(count_paths "${HOME}/www")"
+  if [[ -d "${HOME}/www" ]]; then
+    local site listing
+    listing="$(mktemp)"
+    find "${HOME}/www" -mindepth 1 -maxdepth 1 -type d -printf '%p\n' 2>/dev/null | sort > "$listing" || true
+    while IFS= read -r site; do
+      [[ -n "$site" ]] || continue
+      echo "www_site path=$(basename "$site") inodes=$(count_paths "$site")"
+    done < "$listing"
+    rm -f "$listing"
+  fi
   if command -v quota >/dev/null 2>&1; then
     quota -s 2>/dev/null | sed 's/^/quota_line=/' || true
   fi
