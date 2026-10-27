@@ -13,8 +13,8 @@ CURRENT="${LARAVEL}/current"
 PREVIOUS="${LARAVEL}/previous"
 INCOMING="${LARAVEL}/incoming"
 
-if [[ "$MODE" != "report" && "$MODE" != "cleanup" ]]; then
-  echo "MODE must be report or cleanup." >&2
+if [[ "$MODE" != "report" && "$MODE" != "cleanup" && "$MODE" != "caches" ]]; then
+  echo "MODE must be report, cleanup or caches." >&2
   exit 1
 fi
 
@@ -223,9 +223,36 @@ cleanup_worxevents() {
   echo "=== cleanup end ==="
 }
 
+cleanup_caches_only() {
+  echo "=== caches-only cleanup start ==="
+  if [[ -d "${SHARED}/storage/framework/views" ]]; then
+    find "${SHARED}/storage/framework/views" -type f ! -name '.gitignore' -delete
+    echo "cleared=framework_views"
+  fi
+  if [[ -d "${SHARED}/storage/framework/cache/data" ]]; then
+    find "${SHARED}/storage/framework/cache/data" -type f -delete
+    echo "cleared=framework_cache_data"
+  fi
+  if [[ -d "${SHARED}/storage/logs" ]]; then
+    find "${SHARED}/storage/logs" -type f \( -name '*.log' -o -name '*.log.*' \) -mtime +7 -print -delete | sed 's/^/removed_old_log=/'
+    echo "cleared=logs_older_than_7_days"
+  fi
+  if [[ -d "${SHARED}/storage/framework/sessions" ]]; then
+    find "${SHARED}/storage/framework/sessions" -type f ! -name '.gitignore' -mtime +2 -delete
+    echo "cleared=expired_file_sessions_mtime_gt_2d"
+  fi
+  echo "held_back=previous_release current_release vendor shared_.env incoming backups"
+  echo "=== caches-only cleanup end ==="
+}
+
 report_inodes "before"
 
 if [[ "$MODE" == "cleanup" ]]; then
   cleanup_worxevents
+  report_inodes "after"
+fi
+
+if [[ "$MODE" == "caches" ]]; then
+  cleanup_caches_only
   report_inodes "after"
 fi
