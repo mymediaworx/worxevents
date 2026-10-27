@@ -55,7 +55,14 @@ assert_under_laravel() {
 report_inodes() {
   local label="$1"
   echo "=== inode_report label=${label} ==="
-  echo "home_inodes=$(count_paths "$HOME")"
+  # SiteGround often restricts a full $HOME walk; prefer www + quota/df hints.
+  echo "home_www_inodes=$(count_paths "${HOME}/www")"
+  if command -v quota >/dev/null 2>&1; then
+    quota -s 2>/dev/null | sed 's/^/quota_line=/' || true
+  fi
+  if df -i "$HOME" >/dev/null 2>&1; then
+    df -i "$HOME" 2>/dev/null | sed 's/^/df_i_line=/' || true
+  fi
   echo "worxevents_site_inodes=$(count_paths "$BASE")"
   echo "worxevents_laravel_inodes=$(count_paths "$LARAVEL")"
   echo "releases_total_inodes=$(count_paths "$RELEASES")"
@@ -88,12 +95,16 @@ report_inodes() {
   fi
 
   # Surfacing node_modules anywhere under laravel (should be zero after cleanup).
+  # SiteGround bash cannot open /dev/fd from process substitution; use a temp file.
   if [[ -d "$LARAVEL" ]]; then
-    local nm
+    local nm listing
+    listing="$(mktemp)"
+    find "$LARAVEL" -type d -name node_modules 2>/dev/null > "$listing" || true
     while IFS= read -r nm; do
       [[ -n "$nm" ]] || continue
       echo "node_modules_path=${nm} inodes=$(count_paths "$nm")"
-    done < <(find "$LARAVEL" -type d -name node_modules 2>/dev/null || true)
+    done < "$listing"
+    rm -f "$listing"
   fi
   echo "=== end_inode_report label=${label} ==="
 }
@@ -136,14 +147,17 @@ cleanup_worxevents() {
 
   # 2) Delete node_modules anywhere under WorxEvents laravel (should never ship).
   if [[ -d "$LARAVEL" ]]; then
-    local nm
+    local nm listing
+    listing="$(mktemp)"
+    find "$LARAVEL" -type d -name node_modules 2>/dev/null > "$listing" || true
     while IFS= read -r nm; do
       [[ -n "$nm" ]] || continue
       assert_under_laravel "$(readlink -f "$nm")"
       echo "removing_node_modules=${nm} inodes_before=$(count_paths "$nm")"
       rm -rf "$nm"
       echo "removed_node_modules=${nm}"
-    done < <(find "$LARAVEL" -type d -name node_modules 2>/dev/null || true)
+    done < "$listing"
+    rm -f "$listing"
   fi
 
   # 3) Clear stale framework views and cache data (rebuilds on demand).

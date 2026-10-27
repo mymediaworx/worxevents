@@ -139,7 +139,7 @@ prune_newest() {
 }
 
 prune_runtime() {
-  local keep_current keep_previous dir full nm
+  local keep_current keep_previous dir full nm listing
   keep_current="$(release_realpath "$current" || true)"
   keep_previous="$(release_realpath "$previous" || true)"
 
@@ -159,6 +159,9 @@ prune_runtime() {
   shopt -u nullglob
 
   # Never leave node_modules on the server (not shipped; belt-and-suspenders).
+  # SiteGround bash cannot open /dev/fd from process substitution; use a temp file.
+  listing="$(mktemp)"
+  find "$laravel" -type d -name node_modules 2>/dev/null > "$listing" || true
   while IFS= read -r nm; do
     [[ -n "$nm" ]] || continue
     case "$nm" in
@@ -167,7 +170,8 @@ prune_runtime() {
         echo "pruned_node_modules=${nm}"
         ;;
     esac
-  done < <(find "$laravel" -type d -name node_modules 2>/dev/null || true)
+  done < "$listing"
+  rm -f "$listing"
 
   find "${shared}/storage/framework/cache/data" -type f -delete
   find "${shared}/storage/framework/views" -type f ! -name '.gitignore' -delete
