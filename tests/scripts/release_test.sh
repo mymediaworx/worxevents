@@ -30,9 +30,10 @@ printf '%s\n' 'stale' > "${shared}/storage/framework/views/stale.php"
 printf '%s\n' 'one' > "${shared}/storage/logs/one.log"
 printf '%s\n' 'two' > "${shared}/storage/logs/two.log"
 printf '%s\n' 'three' > "${shared}/storage/logs/three.log"
+# Retention is 7 days: only the stale file should be removed.
 touch -d '2019-01-01 00:00:00' "${shared}/storage/logs/one.log"
-touch -d '2021-01-01 00:00:00' "${shared}/storage/logs/two.log"
-touch -d '2023-01-01 00:00:00' "${shared}/storage/logs/three.log"
+touch -d 'now' "${shared}/storage/logs/two.log"
+touch -d 'now' "${shared}/storage/logs/three.log"
 
 src=""
 stage() {

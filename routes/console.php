@@ -74,4 +74,3 @@ Schedule::call(function () {
         }
     }
 })->daily()->name('worxevents-prune-runtime')->withoutOverlapping();
-
